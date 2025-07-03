@@ -1,0 +1,4 @@
+paths:
+  data_dir: "C:/My folder/pokedex-main"
+  model_dir: "./models"
+  output_dir: "./outputs"
