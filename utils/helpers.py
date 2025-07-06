@@ -4,7 +4,7 @@ from PIL import Image
 from tqdm import tqdm
 import numpy as np
 import torch
-
+from torchvision.utils import save_image
 
 def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
     os.makedirs(output_dir, exist_ok=True)
@@ -38,5 +38,21 @@ def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
     print(f"Dataset Std: {std}")
     return mean, std
 
+def save_sample_images(tensor, save_path, unnormalize=True):
+    """
+    Saves a batch of images to a file.
+    tensor: (B, 3, H, W)
+    """
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-convert_images_to_jpg(r'C:\My folder\pokedex-main\images\small_images', r'C:\My folder\Erasmus_project\data\images')
+    if unnormalize:
+        mean = torch.tensor([0.8937776, 0.88624966, 0.87821686]).view(1, 3, 1, 1)
+        std = torch.tensor([0.20348613, 0.20895252, 0.21951194]).view(1, 3, 1, 1)
+        tensor = tensor * std + mean
+        tensor = torch.clamp(tensor, 0, 1)
+
+    save_image(tensor, save_path, nrow=4)
+
+
+if __name__ == "__main__":
+    convert_images_to_jpg(r'C:\My folder\pokedex-main\images\small_images', r'C:\My folder\Erasmus_project\data\images')

@@ -20,7 +20,7 @@ class TextAndImageDataset(Dataset):
         self.tokenizer = BertTokenizer.from_pretrained("prajjwal1/bert-mini",)
         self.model = BertModel.from_pretrained("prajjwal1/bert-mini")
         with open(text_path, 'r', encoding='utf-8') as f:
-            self.text = f.read().split('\n')[1:]
+            self.text = f.read().split('\n')[1:-1]
 
 
 
@@ -43,7 +43,7 @@ class TextAndImageDataset(Dataset):
             embed = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=168, return_attention_mask=True)
         embed = self.model(**embed)
 
-        return image, embed.last_hidden_state
+        return image, embed.last_hidden_state.squeeze()
 
-dataset = TextAndImageDataset('../data/text_description.csv', '../data/images')
-print(dataset[0])
+#dataset = TextAndImageDataset('../data/text_description.csv', '../data/images')
+
