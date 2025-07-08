@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from parso.python.tree import Class
 from torch.utils.data import Dataset, DataLoader
 
 #latent space 256, 8, 8
@@ -51,6 +50,10 @@ class ConvTranspose(nn.Module):
         # x.shape = (B, C, H, W)
         x = F.relu(self.deconv(x))
         return x
+
+class BertModel(nn.Module):
+    def __init__(self,):
+        super().__init__()
 
 
 

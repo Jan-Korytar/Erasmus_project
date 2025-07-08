@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from parso.python.tree import Class
 import torchvision
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
@@ -13,12 +12,14 @@ from transformers import BertTokenizer, BertModel
 
 
 class TextAndImageDataset(Dataset):
-    def __init__(self, text_path, image_path, transform=None, pad_sentences=False):
+    def __init__(self, text_path, image_path, transform=None, pad_sentences=False, return_hiddens=True):
         self.image_paths = list(Path(image_path).glob('*.jpg'))
         self.pad_sentences = pad_sentences
         self.transform = transform
         self.tokenizer = BertTokenizer.from_pretrained("prajjwal1/bert-mini",)
-        self.model = BertModel.from_pretrained("prajjwal1/bert-mini")
+        self.return_hiddens = return_hiddens
+        if return_hiddens:
+            self.model = BertModel.from_pretrained("prajjwal1/bert-mini")
         with open(text_path, 'r', encoding='utf-8') as f:
             self.text = f.read().split('\n')[1:-1]
 
@@ -41,9 +42,17 @@ class TextAndImageDataset(Dataset):
             embed = self.tokenizer(text,return_tensors="pt", truncation=True, max_length=168, return_attention_mask=True, padding='max_length')
         else:
             embed = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=168, return_attention_mask=True)
-        embed = self.model(**embed)
 
-        return image, embed.last_hidden_state.squeeze()
+
+
+        if self.return_hiddens:
+            embed = self.model(**embed)
+            return image, embed.last_hidden_state.squeeze()
+        else:
+            for k in embed:
+                embed[k] = embed[k].squeeze()
+
+            return image, embed
 
 #dataset = TextAndImageDataset('../data/text_description.csv', '../data/images')
 

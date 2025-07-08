@@ -44,10 +44,11 @@ def save_sample_images(tensor, save_path, unnormalize=True):
     tensor: (B, 3, H, W)
     """
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    device = tensor.device
 
     if unnormalize:
-        mean = torch.tensor([0.8937776, 0.88624966, 0.87821686]).view(1, 3, 1, 1)
-        std = torch.tensor([0.20348613, 0.20895252, 0.21951194]).view(1, 3, 1, 1)
+        mean = torch.tensor([0.8937776, 0.88624966, 0.87821686]).view(1, 3, 1, 1).to(device)
+        std = torch.tensor([0.20348613, 0.20895252, 0.21951194]).view(1, 3, 1, 1).to(device)
         tensor = tensor * std + mean
         tensor = torch.clamp(tensor, 0, 1)
 
