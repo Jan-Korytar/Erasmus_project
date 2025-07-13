@@ -64,8 +64,8 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
             optimizer.step()
 
             epoch_loss += loss.item()
-            if (i + 1) % 50 == 0:
-                save_sample_images(output[:8], save_path=get_project_root() / 'utils' / 'outputs')
+            if (i + 1) % 50 == 1:
+                save_sample_images(output[:8], save_path=get_project_root() / 'utils' / 'outputs' / f'{epoch}_{i}.jpg')
 
 
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         model_config = config['model']
     freeze_support()
     dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data/images', pad_sentences=True, return_hiddens=False )
-    dataloader = DataLoader(dataset, batch_size=training_config['batch_size'], shuffle=True, pin_memory=True, num_workers=4, pin_memory_device=device)
+    dataloader = DataLoader(dataset, batch_size=training_config['batch_size'], shuffle=True, pin_memory=True, num_workers=2, pin_memory_device=device)
     decoder = Decoder(text_embed_dim=model_config['text_embed_dim'], latent_size=model_config['latent_size'],
                       decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
     bert_encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
