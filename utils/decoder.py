@@ -77,7 +77,7 @@ class Decoder(nn.Module):
             self.upscale_layers.append(
                 ConvTranspose(channel_in=current_channels, channel_out=current_channels // 2, kernel_size=4))
             current_channels = current_channels // 2
-            self.cross_attention_layers.append(CrossAttention(num_heads=4, embed_dim=current_channels, map_dim=text_embed_dim))
+            self.cross_attention_layers.append(CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim))
         self.last_conv = nn.Conv2d(current_channels, 3, kernel_size=1)
 
     def forward(self, encoder_output):
