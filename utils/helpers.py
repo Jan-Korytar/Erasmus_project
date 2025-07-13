@@ -55,7 +55,7 @@ def save_sample_images(tensor, save_path, unnormalize=True):
         tensor = tensor * std + mean
         tensor = torch.clamp(tensor, 0, 1)
 
-    save_image(tensor, save_path, nrow=4)
+    save_image(tensor, save_path / '.jpg', nrow=4)
 
 
 if __name__ == "__main__":
