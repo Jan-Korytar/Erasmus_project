@@ -6,6 +6,9 @@ import numpy as np
 import torch
 from torchvision.utils import save_image
 
+def get_project_root() -> Path:
+    return Path(__file__).parent.parent
+
 def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
     os.makedirs(output_dir, exist_ok=True)
     image_paths = list(Path(input_dir).glob('*.png'))
@@ -56,4 +59,5 @@ def save_sample_images(tensor, save_path, unnormalize=True):
 
 
 if __name__ == "__main__":
-    convert_images_to_jpg(r'C:\My folder\pokedex-main\images\small_images', r'C:\My folder\Erasmus_project\data\images')
+    print(get_project_root())
+    #convert_images_to_jpg(r'C:\My folder\pokedex-main\images\small_images', r'C:\My folder\Erasmus_project\data\images')

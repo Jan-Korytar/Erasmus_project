@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from dataset import TextAndImageDataset
 from tqdm import tqdm
 from decoder import Decoder
-from helpers import save_sample_images
+from helpers import save_sample_images, get_project_root
 from transformers import BertModel
 from multiprocessing import freeze_support
 
@@ -82,8 +82,9 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
 
 
 if __name__ == '__main__':
+    project_root = get_project_root()
     freeze_support()
-    dataset = TextAndImageDataset('../data/text_description.csv', '../data/images', pad_sentences=True, return_hiddens=False )
+    dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data/images', pad_sentences=True, return_hiddens=False )
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True, pin_memory=True, num_workers=4)
     decoder = Decoder(text_embed_dim=256, depth=4, output_size=(3, 128, 128))
     encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
