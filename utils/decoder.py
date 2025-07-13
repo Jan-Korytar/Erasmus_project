@@ -51,33 +51,29 @@ class ConvTranspose(nn.Module):
         x = F.relu(self.deconv(x))
         return x
 
-class BertModel(nn.Module):
-    def __init__(self,):
-        super().__init__()
-
 
 
 class Decoder(nn.Module):
-    def __init__(self, text_embed_dim, latent_size=(512, 8, 8), depth =3, output_size = (3, 215, 215)):
+    def __init__(self, text_embed_dim, latent_size=(512, 8, 8), num_heads=8, decoder_depth =3, output_size = (3, 215, 215), ):
         super().__init__()
         self.output_size = output_size
         self.latent_size = latent_size
         self.text_embed_dim = text_embed_dim
         self.seq_len = 168 # TODO take from config
         self.latent = nn.Parameter(torch.randn(latent_size))
-        self.depth = depth
+        self.depth = decoder_depth
 
         current_channels = latent_size[0]
 
         #self.f1 = nn.Linear(text_embed_dim * self.seq_len, latent_size[0] * latent_size[1] * latent_size[2])
-        self.text_attention = CrossAttention(num_heads=4, embed_dim=current_channels, map_dim=text_embed_dim)
+        self.text_attention = CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim)
 
 
         self.upscale_layers = nn.ModuleList()
         self.cross_attention_layers = nn.ModuleList()
 
 
-        for _ in range(depth):
+        for _ in range(decoder_depth):
             self.upscale_layers.append(
                 ConvTranspose(channel_in=current_channels, channel_out=current_channels // 2, kernel_size=4))
             current_channels = current_channels // 2

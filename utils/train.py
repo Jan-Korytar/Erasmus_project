@@ -1,14 +1,15 @@
+from multiprocessing import freeze_support
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from dataset import TextAndImageDataset
+import yaml
+from torch.utils.data import DataLoader
 from tqdm import tqdm
+from transformers import BertModel
+
+from dataset import TextAndImageDataset
 from decoder import Decoder
 from helpers import save_sample_images, get_project_root
-from transformers import BertModel
-from multiprocessing import freeze_support
 
 '''device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -54,7 +55,7 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
         best_loss = float('inf')
         for i, (target_image, text_embed) in enumerate(tqdm(dataloader)):
             text_embed = encoder(**text_embed.to(device)).last_hidden_state            # shape: (B, seq_len, 256)
-            target_image = target_image.to(device)        # shape: (B, 3, H, W)
+            target_image = target_image.to(device)      # shape: (B, 3, H, W)
 
             optimizer.zero_grad()
             output = decoder(text_embed)                  # predicted image
@@ -63,8 +64,8 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
             optimizer.step()
 
             epoch_loss += loss.item()
-            if (i + 1) % 20 == 0:
-                save_sample_images(output[:8], save_path=f"outputs/{epoch}_{i + 1}.jpg")
+            if (i + 1) % 50 == 0:
+                save_sample_images(output[:8], save_path=get_project_root() / 'utils' / 'outputs')
 
 
 
@@ -82,15 +83,20 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
 
 
 if __name__ == '__main__':
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     project_root = get_project_root()
+    with open(project_root / 'config.yaml') as f:
+        config = yaml.safe_load(f)
+        training_config = config['training']
+        model_config = config['model']
     freeze_support()
     dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data/images', pad_sentences=True, return_hiddens=False )
-    dataloader = DataLoader(dataset, batch_size=8, shuffle=True, pin_memory=True, num_workers=4)
-    decoder = Decoder(text_embed_dim=256, depth=4, output_size=(3, 128, 128))
-    encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
+    dataloader = DataLoader(dataset, batch_size=training_config['batch_size'], shuffle=True, pin_memory=True, num_workers=4, pin_memory_device=device)
+    decoder = Decoder(text_embed_dim=model_config['text_embed_dim'], latent_size=model_config['latent_size'],
+                      decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
+    bert_encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    train_decoder(decoder=decoder,encoder=encoder , dataloader=dataloader, num_epochs=40, device=device)
+    train_decoder(decoder=decoder, encoder=bert_encoder, dataloader=dataloader, num_epochs=training_config['num_epochs'], device=device)
 
 
 
