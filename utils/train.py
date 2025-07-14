@@ -46,7 +46,9 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
     decoder = decoder.to(device)
     encoder = encoder.to(device)
     optimizer = torch.optim.Adam(decoder.parameters(), lr=lr)
-    criterion = nn.MSELoss()
+    mseloss = nn.MSELoss()
+    percieve_loss = 0
+
 
     decoder.train()
     encoder.train()
@@ -59,7 +61,7 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
 
             optimizer.zero_grad()
             output = decoder(text_embed)                  # predicted image
-            loss = criterion(output, target_image)
+            loss = mseloss(output, target_image)
             loss.backward()
             optimizer.step()
 
@@ -71,15 +73,16 @@ def train_decoder(decoder, encoder, dataloader, num_epochs=30, lr=1e-4, device='
 
         print(f"[Epoch {epoch+1}/{num_epochs}] Loss: {epoch_loss/len(dataloader):.4f}")
         if epoch_loss/len(dataloader) < best_loss and epoch > 10:
+            pass
             best_loss = epoch_loss/len(dataloader)
-            print(f'Saving the best model at epoch {epoch+1}/{num_epochs}')
-            torch.save(decoder.state_dict(), "model_weights.pth")
+            #print(f'Saving the best model at epoch {epoch+1}/{num_epochs}')
+            #torch.save(decoder.state_dict(), "model_weights.pth")
 
 
         # Optional: save image every few epochs
 
 
-    return decoder
+
 
 
 if __name__ == '__main__':
@@ -90,7 +93,7 @@ if __name__ == '__main__':
         training_config = config['training']
         model_config = config['model']
     freeze_support()
-    dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data/images', pad_sentences=True, return_hiddens=False )
+    dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data/images', pad_sentences=True, return_hidden=False)
     dataloader = DataLoader(dataset, batch_size=training_config['batch_size'], shuffle=True, pin_memory=True, num_workers=2, pin_memory_device=device)
     decoder = Decoder(text_embed_dim=model_config['text_embed_dim'], latent_size=model_config['latent_size'],
                       decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
