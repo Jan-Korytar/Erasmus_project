@@ -73,7 +73,7 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
         if val_loss < best_loss and epoch > 10:
             best_loss = val_loss
             print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
-            torch.save(decoder.state_dict(), "model_weights.pth")
+            torch.save(decoder.state_dict(), get_project_root() / 'utils' / "model_weights.pth")
 
 
 
