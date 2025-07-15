@@ -150,6 +150,7 @@ class Decoder(nn.Module):
 
         #self.f1 = nn.Linear(text_embed_dim * self.seq_len, latent_size[0] * latent_size[1] * latent_size[2])
         self.text_attention = CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim)
+        self.dropout = nn.Dropout(p=0.1)
 
         self.resblocks = nn.ModuleList()
         self.attentions = nn.ModuleList()
@@ -169,12 +170,13 @@ class Decoder(nn.Module):
 
     def forward(self, encoder_output):
         batch_size = encoder_output.shape[0]
-
         latent = self.latent.repeat(batch_size, 1, 1, 1)
+        if self.training:
+            latent = latent + torch.randn_like(latent) * 0.01
         x = F.gelu(self.text_attention(encoder_output, latent))
         for res, attn, up in zip(self.resblocks, self.attentions, self.upscales):
             x = res(x)
-            x = F.gelu(x)
+            x = self.dropout(F.gelu(x))
             x = up(x)
             x = attn(encoder_output, x)  # pass latent here
         x = F.tanh(self.last_conv(x))

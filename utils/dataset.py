@@ -3,8 +3,11 @@ from pathlib import Path
 
 import torchvision
 import torchvision.transforms as T
+import yaml
 from torch.utils.data import Dataset
 from transformers import BertTokenizer, BertModel
+
+from helpers import get_project_root
 
 
 class TextAndImageDataset(Dataset):
@@ -23,6 +26,10 @@ class TextAndImageDataset(Dataset):
         if return_hidden:
             self.model = BertModel.from_pretrained("prajjwal1/bert-mini")
 
+        with open(get_project_root() / 'config.yaml') as f:
+            config = yaml.safe_load(f)
+            self.images = config['training']['images']
+
         with open(text_path, 'r', encoding='utf-8') as f:
             self.text = f.read().split('\n')[1:-1]
 
@@ -33,7 +40,7 @@ class TextAndImageDataset(Dataset):
         return len(self.text)
 
     def __getitem__(self, idx):
-        idx = idx % 200  # for overfitting
+        idx = idx % self.images  # for overfitting
         # Dataset Mean: [0.8937776  0.88624966 0.87821686]
         # Dataset Std: [0.20348613 0.20895252 0.21951194]
         image = torchvision.io.read_image(self.image_paths[idx]) / 255.0

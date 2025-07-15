@@ -9,10 +9,11 @@ training:
   learning_rate: 4e-4
   save_interval: 50
   best_model_epoch_threshold: 10
+  images: 200
 
 model:
   text_embed_dim: 256
-  num_heads: 8
+  num_heads: 4
   decoder_depth: 2
   latent_size: [ 512, 32, 32 ]
   output_size: [3, 128, 128]
