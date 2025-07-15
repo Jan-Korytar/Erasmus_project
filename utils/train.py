@@ -108,6 +108,13 @@ if __name__ == '__main__':
                       decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
     bert_encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
 
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs")
+        decoder = nn.DataParallel(decoder)
+        encoder = nn.DataParallel(bert_encoder)
+    else:
+        print("Using single GPU or CPU")
+
     train_decoder(decoder=decoder, encoder=bert_encoder, train_dataloader=train_dataloader, percpetual_loss=True,
                   val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
                   lr=training_config['learning_rate'],
