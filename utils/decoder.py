@@ -1,14 +1,19 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from helpers import get_project_root
 import yaml
+from torch.ao.nn.quantized import ConvTranspose2d
+from torchinfo import summary
+
+from helpers import get_project_root
+
 
 #latent space 256, 8, 8
 
 class CrossAttention(nn.Module):
+    """
+    Applies cross-attention between decoder latent and encoder output.
+    """
     def __init__(self, num_heads=8, embed_dim=256, map_dim=None):
         super().__init__()
         if map_dim is None:
@@ -25,18 +30,25 @@ class CrossAttention(nn.Module):
         return output
 
 class Upscale(nn.Module):
-    def __init__(self, channel_in, channel_out, kernel_size, use_conv2d = False):
+    """
+    Upsamples input feature maps using bilinear interpolation and optional convolution.
+    """
+
+    def __init__(self, in_channels, out_channels, use_conv2d=False):
         super().__init__()
-        self.conv = nn.Conv2d(channel_in, channel_out, kernel_size=kernel_size, padding=1, ) if use_conv2d else nn.Identity()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, ) if use_conv2d else nn.Identity()
         self.upsample = nn.Upsample(scale_factor=2, mode="bilinear")
 
     def forward(self, x):
         # x.shape = (B, C, H, W):
         x = self.upsample(x)
-        x = F.relu(self.conv(x))
+        x = F.gelu(self.conv(x))
         return x
 
 class ResBlock(nn.Module):
+    """
+    Residual block with two convolutional layers and skip connection.
+    """
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.block = nn.Sequential(
@@ -52,27 +64,80 @@ class ResBlock(nn.Module):
     def forward(self, x):
         return self.block(x) + self.skip(x)
 
-class ConvTranspose(nn.Module):
-    def __init__(self, channel_in, channel_out, kernel_size):
+
+class ConvTranspose2d(nn.Module):
+    """
+    Applies transposed convolution (deconvolution) for upsampling.
+    """
+
+    def __init__(self, in_channels, out_channels, kernel_size=4):
         super().__init__()
         self.deconv = nn.ConvTranspose2d(
-            in_channels=channel_in,
-            out_channels=channel_out,
+            in_channels=in_channels,
+            out_channels=out_channels,
             kernel_size=kernel_size,
             stride=2,
             padding=1,
-            output_padding=1
+            output_padding=0
         )
 
     def forward(self, x):
         # x.shape = (B, C, H, W)
-        x = F.relu(self.deconv(x))
+        x = F.gelu(self.deconv(x))
+        return x
+
+
+class PixelShuffleUpsample(nn.Module):
+    """
+    Upsamples using pixel shuffle technique after increasing channel dimensions.
+    """
+
+    def __init__(self, in_channels, out_channels, upscale_factor=2):
+        super().__init__()
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels * (upscale_factor ** 2),
+            kernel_size=3,
+            padding=1
+        )
+        self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
+        self.norm = nn.GroupNorm(8, out_channels)
+        self.act = nn.GELU()
+
+    def forward(self, x):
+        x = self.conv(x)  # (B, C*r^2, H, W)
+        x = self.pixel_shuffle(x)  # (B, C, H*r, W*r)
+        x = self.norm(x)
+        x = self.act(x)
         return x
 
 
 
 class Decoder(nn.Module):
-    def __init__(self, text_embed_dim, latent_size=(512, 8, 8), num_heads=8, decoder_depth =3, output_size = (3, 215, 215), seq_len=168 ):
+    """
+    Transformer-style decoder that converts text embeddings into an image tensor.
+
+    The decoder uses a learned latent tensor, cross-attention with the input text embeddings,
+    residual blocks, and progressive upsampling (via transposed convolutions and pixel shuffle)
+    to produce an output image.
+
+    Args:
+        text_embed_dim (int): Dimensionality of the input text embeddings.
+        latent_size (tuple): Shape of the learned latent tensor as (C, H, W).
+        num_heads (int): Number of attention heads used in cross-attention layers.
+        decoder_depth (int): Number of decoding stages, each with resblock, upsampling, and attention.
+        output_size (tuple): Final output image size as (channels, height, width).
+        seq_len (int): Length of the input token sequence from the text encoder.
+
+    Inputs:
+        encoder_output (torch.Tensor): Text encoder output of shape (batch_size, seq_len, text_embed_dim).
+
+    Returns:
+        torch.Tensor: Decoded image of shape (batch_size, output_size[0], output_size[1], output_size[2]).
+    """
+
+    def __init__(self, text_embed_dim, latent_size=(512, 8, 8), num_heads=8, decoder_depth=4, output_size=(3, 215, 215),
+                 seq_len=168):
         super().__init__()
         self.output_size = output_size
         self.latent_size = latent_size
@@ -85,30 +150,36 @@ class Decoder(nn.Module):
 
         #self.f1 = nn.Linear(text_embed_dim * self.seq_len, latent_size[0] * latent_size[1] * latent_size[2])
         self.text_attention = CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim)
-        self.upscale = Upscale(None, None, None, False)
 
-        self.resblock_layers = nn.ModuleList()
-        self.cross_attention_layers = nn.ModuleList()
+        self.resblocks = nn.ModuleList()
+        self.attentions = nn.ModuleList()
+        self.upscales = nn.ModuleList()
 
-
-        for _ in range(decoder_depth):
-            self.resblock_layers.append(
-                ResBlock(in_channels=current_channels, out_channels=current_channels//2))
+        for d in range(decoder_depth):
+            self.resblocks.append(ResBlock(in_channels=current_channels, out_channels=current_channels))
+            self.upscales.append(ConvTranspose2d(in_channels=current_channels, out_channels=current_channels // 2)
+                                 if d != decoder_depth - 1 else PixelShuffleUpsample(current_channels,
+                                                                                     current_channels // 2, ))
             current_channels = current_channels // 2
-            self.cross_attention_layers.append(CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim))
-        self.last_conv = nn.Conv2d(current_channels, 3, kernel_size=1)
+            self.attentions.append(
+                CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim))
+
+        self.last_conv = nn.Sequential(ResBlock(in_channels=current_channels, out_channels=current_channels // 2),
+                                       nn.Conv2d(current_channels // 2, 3, kernel_size=1))
 
     def forward(self, encoder_output):
         batch_size = encoder_output.shape[0]
-        #x = (F.relu(self.f1(encoder_output.view(batch_size, -1))).view(batch_size, *self.latent_size))
+
         latent = self.latent.repeat(batch_size, 1, 1, 1)
-        x = self.text_attention(encoder_output, latent)
-        for resblock_layer, attention_layer in zip(self.resblock_layers, self.cross_attention_layers):
-            x = resblock_layer(x)
-            x = self.upscale(x)
-            x = attention_layer(encoder_output, x)
+        x = F.gelu(self.text_attention(encoder_output, latent))
+        for res, attn, up in zip(self.resblocks, self.attentions, self.upscales):
+            x = res(x)
+            x = F.gelu(x)
+            x = up(x)
+            x = attn(encoder_output, x)  # pass latent here
         x = F.tanh(self.last_conv(x))
-        x = F.interpolate(x, size=self.output_size[1:], mode="bilinear", align_corners=True)
+        if x.shape[1:] != self.output_size:
+            x = F.interpolate(x, size=self.output_size[1:], mode="bilinear", align_corners=True)
         return x
 
 
@@ -121,7 +192,8 @@ if __name__ == '__main__':
         training_config = config['training']
         model_config = config['model']
     decoder = Decoder(text_embed_dim=model_config['text_embed_dim'], latent_size=model_config['latent_size'],
-                      decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size']).to(device)
+                      decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
 
-    out = decoder(torch.rand(2, 168, 256).to(device))
+    out = decoder(torch.rand(8, 168, 256))
 
+    summary(decoder, input_size=(4, 168, 256))

@@ -1,6 +1,6 @@
+import random
 from pathlib import Path
 
-import torch
 import torchvision
 import torchvision.transforms as T
 from torch.utils.data import Dataset
@@ -8,9 +8,9 @@ from transformers import BertTokenizer, BertModel
 
 
 class TextAndImageDataset(Dataset):
-    def __init__(self, text_path, image_path, augment_images=True, pad_sentences=False, return_hidden=True):
+    def __init__(self, text_path, image_path, augment_images=False, return_hidden=True):
         self.image_paths = list(Path(image_path).glob('*.jpg'))
-        self.pad_sentences = pad_sentences
+        self.pad_sentences = True
         self.augment_images = augment_images
         self.image_transform = T.Compose([
             T.RandomResizedCrop(128, scale=(0.9, 1.0)),
@@ -33,6 +33,7 @@ class TextAndImageDataset(Dataset):
         return len(self.text)
 
     def __getitem__(self, idx):
+        idx = idx % 200  # for overfitting
         # Dataset Mean: [0.8937776  0.88624966 0.87821686]
         # Dataset Std: [0.20348613 0.20895252 0.21951194]
         image = torchvision.io.read_image(self.image_paths[idx]) / 255.0
@@ -40,10 +41,19 @@ class TextAndImageDataset(Dataset):
             image = self.image_transform(image)
         image = self.normalize(image)
         text =  self.text[idx]
-        if self.pad_sentences:
-            embed = self.tokenizer(text,return_tensors="pt", truncation=True, max_length=168, return_attention_mask=True, padding='max_length')
-        else:
-            embed = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=168, return_attention_mask=True)
+        text = [word for word in text.split(' ') if random.random() > .1]
+        text = ' '.join(text)
+
+        embed = self.tokenizer(
+            text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=168,
+            return_attention_mask=True,
+            padding='max_length' if self.pad_sentences else False
+        )
+
+
 
 
 

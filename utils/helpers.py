@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
-from PIL import Image
-from tqdm import tqdm
+
 import numpy as np
 import torch
+from PIL import Image
 from torchvision.utils import save_image
+from tqdm import tqdm
+
 
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
@@ -50,9 +52,9 @@ def save_sample_images(tensor, save_path, unnormalize=True):
     device = tensor.device
 
     if unnormalize:
-        mean = torch.tensor([0.8937776, 0.88624966, 0.87821686]).view(1, 3, 1, 1).to(device)
-        std = torch.tensor([0.20348613, 0.20895252, 0.21951194]).view(1, 3, 1, 1).to(device)
-        tensor = tensor * std + mean
+        # mean = torch.tensor([0.8937776, 0.88624966, 0.87821686]).view(1, 3, 1, 1).to(device)
+        # std = torch.tensor([0.20348613, 0.20895252, 0.21951194]).view(1, 3, 1, 1).to(device)
+        tensor = (tensor + 1) / 2
         tensor = torch.clamp(tensor, 0, 1)
 
     save_image(tensor, save_path, nrow=4)
