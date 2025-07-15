@@ -33,7 +33,10 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
     print(f'--- Beginning training with {device} ---')
     decoder = decoder.to(device)
     encoder = encoder.to(device)
-    optimizer = torch.optim.Adam(decoder.parameters(), lr=lr)
+    optimizer = torch.optim.Adam([
+        {'params': decoder.parameters(), 'lr': lr},
+        {'params': encoder.parameters(), 'lr': lr * 0.1}
+    ])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, num_epochs)
     mse_loss = nn.MSELoss(reduction='mean')
     perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
