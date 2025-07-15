@@ -44,15 +44,17 @@ def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
     print(f"Dataset Std: {std}")
     return mean, std
 
-def save_sample_images(tensor, save_path, unnormalize=True):
+
+def save_sample_images(tensor, filename, unnormalize=True):
     """
     Saves a batch of images to a file.
     tensor: (B, 3, H, W)
     """
 
-    if os.path.exists(save_path):
-        shutil.rmtree(save_path)
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    path = get_project_root() / 'utils' / 'outputs'
+    if os.path.exists(path) and filename == '0_0.jpg':
+        shutil.rmtree(path)
+    os.makedirs(path, exist_ok=True)
 
     if unnormalize:
         # mean = torch.tensor([0.8937776, 0.88624966, 0.87821686]).view(1, 3, 1, 1).to(device)
@@ -60,7 +62,7 @@ def save_sample_images(tensor, save_path, unnormalize=True):
         tensor = (tensor + 1) / 2
         tensor = torch.clamp(tensor, 0, 1)
 
-    save_image(tensor, save_path, nrow=4)
+    save_image(tensor, filename, nrow=4)
 
 
 if __name__ == "__main__":

@@ -63,8 +63,8 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
             optimizer.step()
 
             epoch_train_loss += loss.item()
-            if (i + 1) % 50 == 0:  # save image
-                save_sample_images(output[:8], save_path=get_project_root() / 'utils' / 'outputs' / f'{epoch}_{i}.jpg')
+            if i % 50 == 0:  # save image
+                save_sample_images(output[:8], filename=f'{epoch}_{i}.jpg')
 
         scheduler.step()
         val_loss = validate(decoder, encoder, val_dataloader, device)
