@@ -33,6 +33,7 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
     print(f'--- Beginning training with {device} ---')
     decoder = decoder.to(device)
     encoder = encoder.to(device)
+    print(lr)
     optimizer = torch.optim.Adam([
         {'params': decoder.parameters(), 'lr': lr},
         {'params': encoder.parameters(), 'lr': lr * 0.1}
