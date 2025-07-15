@@ -88,7 +88,8 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
         training_config = config['training']
         model_config = config['model']
-    full_dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data / images / 128',
+    full_dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data' / 'images' /
+                                       f'{model_config["output_size"][1]}',
                                        return_hidden=False)
 
     # Split datasets
@@ -119,5 +120,5 @@ if __name__ == '__main__':
 
     train_decoder(decoder=decoder, encoder=bert_encoder, train_dataloader=train_dataloader, percpetual_loss=True,
                   val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
-                  lr=training_config['learning_rate'],
+                  lr=float(training_config['learning_rate']),
                   device=device)
