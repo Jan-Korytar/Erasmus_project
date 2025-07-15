@@ -49,7 +49,6 @@ def save_sample_images(tensor, save_path, unnormalize=True):
     tensor: (B, 3, H, W)
     """
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    device = tensor.device
 
     if unnormalize:
         # mean = torch.tensor([0.8937776, 0.88624966, 0.87821686]).view(1, 3, 1, 1).to(device)
@@ -62,4 +61,5 @@ def save_sample_images(tensor, save_path, unnormalize=True):
 
 if __name__ == "__main__":
     print(get_project_root())
-    #convert_images_to_jpg(r'C:\My folder\pokedex-main\images\small_images', r'C:\My folder\Erasmus_project\data\images')
+    convert_images_to_jpg(r'C:\My folder\pokedex-main\images\small_images',
+                          r'C:\My folder\Erasmus_project\data\images\215', size=(215, 215))

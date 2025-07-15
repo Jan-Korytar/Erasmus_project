@@ -88,7 +88,7 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
         training_config = config['training']
         model_config = config['model']
-    full_dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data/images',
+    full_dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data / images / 128',
                                        return_hidden=False)
 
     # Split datasets
