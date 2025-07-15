@@ -106,5 +106,6 @@ if __name__ == '__main__':
     bert_encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
 
     train_decoder(decoder=decoder, encoder=bert_encoder, train_dataloader=train_dataloader, percpetual_loss=True,
-                  val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'], lr=training_config['lr'],
+                  val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
+                  lr=training_config['learning_rate'],
                   device=device)
