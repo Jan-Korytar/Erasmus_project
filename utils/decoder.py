@@ -170,11 +170,6 @@ class Decoder(nn.Module):
         self.last_conv = nn.Sequential(ResBlock(in_channels=current_channels, out_channels=current_channels // 2),
                                        nn.Conv2d(current_channels // 2, 3, kernel_size=1))
 
-    def get_attr(self, attr):
-        if isinstance(self, nn.DataParallel):
-            return getattr(self.module, attr)
-        else:
-            return getattr(self, attr)
 
     def forward(self, encoder_output):
         batch_size = encoder_output.shape[0]
