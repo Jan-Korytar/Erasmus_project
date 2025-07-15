@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -48,6 +49,9 @@ def save_sample_images(tensor, save_path, unnormalize=True):
     Saves a batch of images to a file.
     tensor: (B, 3, H, W)
     """
+
+    if os.path.exists(save_path):
+        shutil.rmtree(save_path)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     if unnormalize:
