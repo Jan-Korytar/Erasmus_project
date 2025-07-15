@@ -67,8 +67,8 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
             f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss / len(train_dataloader):.4f}, Val Loss: {val_loss}, LR: {scheduler.get_last_lr()[0]:.4f}")
         if val_loss < best_loss and epoch > 10:
             best_loss = val_loss
-            #print(f'Saving the best model at epoch {epoch+1}/{num_epochs}')
-            #torch.save(decoder.state_dict(), "model_weights.pth")
+            print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
+            torch.save(decoder.state_dict(), "model_weights.pth")
 
 
 
