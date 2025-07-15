@@ -49,13 +49,14 @@ class ResBlock(nn.Module):
     """
     Residual block with two convolutional layers and skip connection.
     """
-    def __init__(self, in_channels, out_channels):
+
+    def __init__(self, in_channels, out_channels, num_groups=8):
         super().__init__()
         self.block = nn.Sequential(
-            nn.GroupNorm(8, in_channels),
+            nn.GroupNorm(num_groups, in_channels),
             nn.GELU(),
             nn.Conv2d(in_channels, out_channels, 3, padding=1),
-            nn.GroupNorm(8, out_channels),
+            nn.GroupNorm(num_groups, out_channels),
             nn.GELU(),
             nn.Conv2d(out_channels, out_channels, 3, padding=1)
         )
@@ -157,7 +158,8 @@ class Decoder(nn.Module):
         self.upscales = nn.ModuleList()
 
         for d in range(decoder_depth):
-            self.resblocks.append(ResBlock(in_channels=current_channels, out_channels=current_channels))
+            self.resblocks.append(
+                ResBlock(in_channels=current_channels, out_channels=current_channels, num_groups=current_channels // 8))
             self.upscales.append(ConvTranspose2d(in_channels=current_channels, out_channels=current_channels // 2)
                                  if d != decoder_depth - 1 else PixelShuffleUpsample(current_channels,
                                                                                      current_channels // 2, ))

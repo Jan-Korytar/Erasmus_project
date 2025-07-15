@@ -14,7 +14,7 @@ training:
 model:
   text_embed_dim: 256
   num_heads: 4
-  decoder_depth: 2
-  latent_size: [ 512, 32, 32 ]
+  decoder_depth: 4
+  latent_size: [ 512, 8, 8 ]
   output_size: [3, 128, 128]
   sequence_length: 168
