@@ -17,7 +17,6 @@ class TextAndImageDataset(Dataset):
         self.augment_images = augment_images
         self.image_transform = T.Compose([
             T.RandomResizedCrop(128, scale=(0.9, 1.0)),
-            T.RandomHorizontalFlip(),
             T.RandomRotation(degrees=5),
         ]) if augment_images else T.Resize((128, 128))
         self.tokenizer = BertTokenizer.from_pretrained("prajjwal1/bert-mini",)
