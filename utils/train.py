@@ -72,7 +72,7 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
 
             epoch_train_loss += loss.item()
             if i % 50 == 0:  # save image
-                save_sample_images(output[:8], filename=f'{epoch}_{i}.jpg')
+                save_sample_images(torch.cat([output[:4], target_image[:4]], dim=0), filename=f'{epoch}_{i}.jpg')
 
         scheduler.step()
         val_loss = validate(decoder, encoder, val_dataloader, device)
