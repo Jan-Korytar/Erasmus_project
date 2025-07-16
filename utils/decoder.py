@@ -14,18 +14,22 @@ class CrossAttention(nn.Module):
     """
     Applies cross-attention between decoder latent and encoder output.
     """
-    def __init__(self, num_heads=8, embed_dim=256, map_dim=None):
-        super().__init__()
-        if map_dim is None:
-            map_dim = embed_dim
-        self.attention = nn.MultiheadAttention(num_heads=num_heads, embed_dim=embed_dim,vdim=map_dim, kdim=map_dim, batch_first=True, dropout=0.1)
-        self.norm = nn.LayerNorm(embed_dim)
 
-    def forward(self, encoder_output, decoder_input_latent):
-        B, C, H, W = decoder_input_latent.shape
-        decoder_input_latent = decoder_input_latent.view(B, C, H * W).permute(0, 2, 1) # -> B, HW, C
-        attn_output, attn_output_weights = self.attention(query=decoder_input_latent, key=encoder_output, value=encoder_output)
-        output = self.norm(decoder_input_latent + attn_output)
+    def __init__(self, num_heads=8, embed_query_dim=None, vdim_kdim=256, H_W: int = None):
+        super().__init__()
+        if vdim_kdim is None:
+            vdim_kdim = embed_query_dim
+        self.pos_embed = nn.Parameter(torch.randn(1, embed_query_dim, H_W, H_W))
+        self.attention = nn.MultiheadAttention(num_heads=num_heads, embed_dim=embed_query_dim, vdim=vdim_kdim,
+                                               kdim=vdim_kdim, batch_first=True, dropout=0.1)
+        self.norm = nn.LayerNorm(embed_query_dim)
+
+    def forward(self, encoder_output, latent):
+        B, C, H, W = latent.shape
+        latent_pos = latent + self.pos_embed
+        latent_pos = latent_pos.view(B, C, H * W).permute(0, 2, 1)  # -> B, HW, C
+        attn_output, _ = self.attention(query=latent_pos, key=encoder_output, value=encoder_output)
+        output = self.norm(latent_pos + attn_output)
         output = output.permute(0, 2, 1).view(B, C, H, W)
         return output
 
@@ -150,13 +154,14 @@ class Decoder(nn.Module):
         current_channels = latent_size[0]
 
         #self.f1 = nn.Linear(text_embed_dim * self.seq_len, latent_size[0] * latent_size[1] * latent_size[2])
-        self.text_attention = CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim)
+        self.text_attention = CrossAttention(num_heads=num_heads, embed_query_dim=current_channels,
+                                             vdim_kdim=text_embed_dim, H_W=latent_size[-1])
         self.dropout = nn.Dropout(p=0.1)
 
         self.resblocks = nn.ModuleList()
         self.attentions = nn.ModuleList()
         self.upscales = nn.ModuleList()
-
+        size = latent_size[-1]
         for d in range(decoder_depth):
             self.resblocks.append(
                 ResBlock(in_channels=current_channels, out_channels=current_channels, num_groups=current_channels // 8))
@@ -164,11 +169,12 @@ class Decoder(nn.Module):
                                  if d != decoder_depth - 1 else PixelShuffleUpsample(current_channels,
                                                                                      current_channels // 2, ))
             current_channels = current_channels // 2
-            self.attentions.append(
-                CrossAttention(num_heads=num_heads, embed_dim=current_channels, map_dim=text_embed_dim))
+            size *= 2
+            self.attentions.append(CrossAttention(num_heads=num_heads, embed_query_dim=current_channels,
+                                                  vdim_kdim=text_embed_dim, H_W=size))
 
-        self.last_conv = nn.Sequential(ResBlock(in_channels=current_channels, out_channels=current_channels // 2),
-                                       nn.Conv2d(current_channels // 2, 3, kernel_size=1))
+        self.last_conv = nn.Sequential(ResBlock(in_channels=current_channels, out_channels=current_channels),
+                                       nn.Conv2d(current_channels, 3, kernel_size=1))
 
 
     def forward(self, encoder_output):
