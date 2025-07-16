@@ -10,6 +10,8 @@ training:
   save_interval: 50
   best_model_epoch_threshold: 10
   images: 200
+  use_overlapping: true
+
 
 model:
   text_embed_dim: 256

@@ -148,12 +148,13 @@ class Decoder(nn.Module):
         self.latent_size = latent_size
         self.text_embed_dim = text_embed_dim
         self.seq_len = seq_len
-        self.latent = nn.Parameter(torch.randn(latent_size))
+        self.latent = nn.Parameter(torch.randn(1, *latent_size))
         self.depth = decoder_depth
 
         current_channels = latent_size[0]
 
-        #self.f1 = nn.Linear(text_embed_dim * self.seq_len, latent_size[0] * latent_size[1] * latent_size[2])
+        self.z_dim = 256
+        self.z_to_latent = nn.Linear(self.z_dim, latent_size[0] * latent_size[1] * latent_size[2])
         self.text_attention = CrossAttention(num_heads=num_heads, embed_query_dim=current_channels,
                                              vdim_kdim=text_embed_dim, H_W=latent_size[-1])
         self.dropout = nn.Dropout(p=0.1)
@@ -180,9 +181,12 @@ class Decoder(nn.Module):
     def forward(self, encoder_output):
         batch_size = encoder_output.shape[0]
         latent = self.latent.repeat(batch_size, 1, 1, 1)
+        z = self.z_to_latent(torch.randn(batch_size, self.z_dim, device=latent.device)).view(*latent.shape)
+        latent = z + latent
+
         if self.training:
             latent = latent + torch.randn_like(latent) * 0.01
-        x = F.gelu(self.text_attention(encoder_output, latent))
+        x = F.gelu(self.text_attention(encoder_output, latent))  # x is hidden
         for res, attn, up in zip(self.resblocks, self.attentions, self.upscales):
             x = res(x)
             x = self.dropout(F.gelu(x))

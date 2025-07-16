@@ -1,6 +1,6 @@
 import torch.nn as nn
 import yaml
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Subset
 from transformers import BertModel
 
 from dataset import TextAndImageDataset
@@ -84,7 +84,8 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
         if val_loss < best_loss and epoch > 10:
             best_loss = val_loss
             print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
-            torch.save(decoder.state_dict(), get_project_root() / 'utils' / "model_weights.pth")
+            torch.save(decoder.state_dict(), get_project_root() / 'utils' / "decoder_weights.pth")
+            torch.save(decoder.state_dict(), get_project_root() / 'utils' / "encoder_weights.pth")
 
     plot_train_val_losses(train_losses, val_losses)
     return train_losses, val_losses
@@ -101,7 +102,8 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
         training_config = config['training']
         model_config = config['model']
-    full_dataset = TextAndImageDataset(project_root / 'data/text_description.csv', project_root / 'data' / 'images' /
+    full_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
+                                       project_root / 'data' / 'images' /
                                        f'{model_config["output_size"][1]}',
                                        return_hidden=False)
 
@@ -111,18 +113,27 @@ if __name__ == '__main__':
     val_len = int(0.1 * total_len)
     test_len = len(full_dataset) - train_len - val_len
 
-    train_dataset, val_dataset, test_dataset = random_split(
-        full_dataset,
-        lengths=[train_len, val_len, test_len],
-        generator=torch.Generator().manual_seed(42)  # for reproducibility
-    )
-    train_dataloader = DataLoader(train_dataset, batch_size=training_config['batch_size'], shuffle=True,
+    # train_dataset, val_dataset, test_dataset = random_split(
+    #    full_dataset,
+    #    lengths=[train_len, val_len, test_len],
+    #    generator=torch.Generator().manual_seed(42)  # for reproducibility
+    # )
+
+    val_size = int(total_len * 0.1)
+
+    # Generate shuffled indices
+    indices = torch.randperm(total_len).tolist()[:val_size]
+
+    val_dataset = Subset(full_dataset, indices)
+
+    train_dataloader = DataLoader(full_dataset, batch_size=training_config['batch_size'], shuffle=True,
                                   pin_memory=True, num_workers=1, pin_memory_device=device)
     val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False, pin_memory=True, num_workers=1,
                                 pin_memory_device=device)
     decoder = Decoder(text_embed_dim=model_config['text_embed_dim'], latent_size=model_config['latent_size'],
                       decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
     bert_encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
+
 
     t, v = train_decoder(decoder=decoder, encoder=bert_encoder, train_dataloader=train_dataloader, percpetual_loss=True,
                   val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],

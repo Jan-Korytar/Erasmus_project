@@ -20,6 +20,8 @@ class TextAndImageDataset(Dataset):
             T.RandomRotation(degrees=5),
         ]) if augment_images else T.Resize((128, 128))
         self.tokenizer = BertTokenizer.from_pretrained("prajjwal1/bert-mini",)
+        special_tokens_dict = {'additional_special_tokens': ['[NAME]']}
+        self.tokenizer.add_special_tokens(special_tokens_dict)
         self.return_hidden = return_hidden
         self.normalize = T.Normalize((0.5,), (0.5,))
         if return_hidden:
@@ -46,9 +48,26 @@ class TextAndImageDataset(Dataset):
         if self.augment_images:
             image = self.image_transform(image)
         image = self.normalize(image)
-        text =  self.text[idx]
-        text = [word for word in text.split(' ') if random.random() > .1]
-        text = ' '.join(text)
+
+        text = self.text[idx]
+        name, text = text.split(';', 1)
+
+        if random.random() < 0.3:
+            text = text.replace(name, '[NAME]')
+            name = '[NAME]'
+        # Mask name with 50% chance
+
+        tokens = text.split()
+
+        # Mask dropped words with 10% chance
+        tokens = [w if w == '[NAME]' or random.random() > 0.1 else '[MASK]' for w in tokens]
+
+        # Randomly insert the name (if masked, insert actual name)
+        if random.random() < 0.5:
+            insert_pos = random.randint(0, len(tokens))
+            tokens.insert(insert_pos, name)
+        text = ' '.join(tokens)
+
 
         embed = self.tokenizer(
             text,
