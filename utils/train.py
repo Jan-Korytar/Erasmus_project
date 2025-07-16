@@ -1,13 +1,11 @@
-import torch
 import torch.nn as nn
 import yaml
 from torch.utils.data import DataLoader, random_split
-from tqdm import tqdm
 from transformers import BertModel
 
 from dataset import TextAndImageDataset
 from decoder import Decoder
-from helpers import save_sample_images, get_project_root
+from helpers import *
 from perceptual_loss import PerceptualLoss
 
 
@@ -30,11 +28,21 @@ def validate(decoder, encoder, dataloader, device):
 
 def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs=30, lr=5e-3, device='cuda',
                   percpetual_loss=False):
-    print(f'--- Beginning training with {device} ---')
+    '''
+
+    '''
+    if torch.cuda.device_count() > 1:
+        print(f"--- Using {torch.cuda.device_count()} GPUs ---")
+        decoder = nn.DataParallel(decoder)
+        encoder = nn.DataParallel(bert_encoder)
+    else:
+        print(f"--- Using single {device} ---")
+
+    train_losses = []
+    val_losses = []
     decoder = decoder.to(device)
     encoder = encoder.to(device)
-    print(lr)
-    optimizer = torch.optim.Adam([
+    optimizer = torch.optim.AdamW([
         {'params': decoder.parameters(), 'lr': lr},
         {'params': encoder.parameters(), 'lr': lr * 0.1}
     ])
@@ -68,13 +76,18 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
 
         scheduler.step()
         val_loss = validate(decoder, encoder, val_dataloader, device)
+        val_losses.append(val_loss)
+        epoch_train_loss = epoch_train_loss / len(train_dataloader)
+        train_losses.append(epoch_train_loss)
         print(
-            f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss / len(train_dataloader):.4f}, Val Loss: {val_loss}, LR: {scheduler.get_last_lr()[0]:.4f}")
+            f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss}, LR: {scheduler.get_last_lr()[0]:.4f}")
         if val_loss < best_loss and epoch > 10:
             best_loss = val_loss
             print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
             torch.save(decoder.state_dict(), get_project_root() / 'utils' / "model_weights.pth")
 
+    plot_train_val_losses(train_losses, val_losses)
+    return train_losses, val_losses
 
 
 
@@ -93,7 +106,7 @@ if __name__ == '__main__':
                                        return_hidden=False)
 
     # Split datasets
-    total_len = len(full_dataset)
+    total_len = len(full_dataset) // 6
     train_len = int(0.8 * total_len)
     val_len = int(0.1 * total_len)
     test_len = len(full_dataset) - train_len - val_len
@@ -111,14 +124,7 @@ if __name__ == '__main__':
                       decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
     bert_encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
 
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs")
-        decoder = nn.DataParallel(decoder)
-        encoder = nn.DataParallel(bert_encoder)
-    else:
-        print("Using single GPU or CPU")
-
-    train_decoder(decoder=decoder, encoder=bert_encoder, train_dataloader=train_dataloader, percpetual_loss=True,
+    t, v = train_decoder(decoder=decoder, encoder=bert_encoder, train_dataloader=train_dataloader, percpetual_loss=True,
                   val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
                   lr=float(training_config['learning_rate']),
                   device=device)

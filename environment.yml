@@ -1,0 +1,15 @@
+name: pokemon
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy
+  - tqdm
+  - python=3.10
+  - pandas
+  - transformers
+  - conda-forge::sentencepiece
+  - jupyter
+  - ipywidgets
+  - matplotlib
+prefix: C:\Users\0005h\miniconda3\envs\pokemon

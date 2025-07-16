@@ -4,7 +4,7 @@ paths:
   output_dir: "./outputs"
 
 training:
-  num_epochs: 100
+  num_epochs: 1
   batch_size: 4
   learning_rate: 4e-4
   save_interval: 50

@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image
+from matplotlib import pyplot as plt
 from torchvision.utils import save_image
 from tqdm import tqdm
 
@@ -45,6 +46,30 @@ def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
     return mean, std
 
 
+def plot_train_val_losses(train_losses, val_losses):
+    epochs = range(1, len(train_losses) + 1)
+
+    fig, ax1 = plt.subplots()
+
+    # Primary y-axis for training loss
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Train Loss', color='tab:blue')
+    ax1.plot(epochs, train_losses, label='Train Loss', color='tab:blue')
+    ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+    # Secondary y-axis for validation loss
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('Validation Loss', color='tab:red')
+    ax2.plot(epochs, val_losses, label='Val Loss', color='tab:red')
+    ax2.tick_params(axis='y', labelcolor='tab:red')
+
+    plt.title('Training vs Validation Loss')
+    fig.tight_layout()
+    plt.grid(True)
+    plt.savefig(get_project_root() / 'utils' / 'train_val_loss.jpg')
+    plt.show()
+
+
 def save_sample_images(tensor, filename, unnormalize=True):
     """
     Saves a batch of images to a file.
@@ -62,7 +87,7 @@ def save_sample_images(tensor, filename, unnormalize=True):
         tensor = (tensor + 1) / 2
         tensor = torch.clamp(tensor, 0, 1)
 
-    save_image(tensor, filename, nrow=4)
+    save_image(tensor, path / filename, nrow=4)
 
 
 if __name__ == "__main__":
