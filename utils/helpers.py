@@ -67,7 +67,7 @@ def plot_train_val_losses(train_losses, val_losses):
     fig.tight_layout()
     plt.grid(True)
     plt.savefig(get_project_root() / 'utils' / 'train_val_loss.jpg')
-    plt.show()
+    plt.close()
 
 
 def save_sample_images(tensor, filename, unnormalize=True):
