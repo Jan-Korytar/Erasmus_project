@@ -46,7 +46,12 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
         {'params': decoder.parameters(), 'lr': lr},
         {'params': encoder.parameters(), 'lr': lr * 0.1}
     ])
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, num_epochs)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer,
+        T_0=50,
+        T_mult=2,
+        eta_min=1e-5
+    )
     l_loss = nn.L1Loss(reduction='mean')
     perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
 
@@ -81,7 +86,7 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
         epoch_train_loss = epoch_train_loss / len(train_dataloader)
         train_losses.append(epoch_train_loss)
         print(
-            f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss}, LR: {scheduler.get_last_lr()[0]:.4f}")
+            f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {scheduler.get_last_lr()[0]:.6f}")
         if epoch >= 10:
             if val_loss < best_loss:
                 tolerance = 10
@@ -92,8 +97,8 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
             else:
                 tolerance -= 1
                 if tolerance <= 0:
-                    print(f'Early stopping at epoch {epoch + 1}/{num_epochs}')
-                    break
+                    print(f'WOULD: Early stopping at epoch {epoch + 1}/{num_epochs}')
+                    # break
 
 
     plot_train_val_losses(train_losses, val_losses)
