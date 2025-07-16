@@ -40,6 +40,28 @@ class TextAndImageDataset(Dataset):
     def __len__(self):
         return len(self.text)
 
+    def augment_text(self, text: str):
+        name, text = text.split(';', 1)
+        sentences = text.split('.')
+        sentences = random.sample(sentences, int(.8 * (len(sentences))))
+
+        def drop_words(sentence):
+            tokens = sentence.split()
+            kept = [w if random.random() > 0.15 else '[MASK]' for w in tokens]
+            return ' '.join(kept)
+
+        sentences = ' '.join([drop_words(s) for s in sentences])
+        tokens = [t for t in sentences.split(' ')]
+
+        if random.random() < 0.35:
+            name = '[NAME]'
+
+        insert_pos = random.randint(0, len(tokens))
+        tokens.insert(insert_pos, name)
+
+        return ' '.join(tokens)
+
+
     def __getitem__(self, idx):
         idx = idx % self.images  # for overfitting
         # Dataset Mean: [0.8937776  0.88624966 0.87821686]
@@ -49,24 +71,8 @@ class TextAndImageDataset(Dataset):
             image = self.image_transform(image)
         image = self.normalize(image)
 
-        text = self.text[idx]
-        name, text = text.split(';', 1)
+        text = self.augment_text(self.text[idx])
 
-        if random.random() < 0.3:
-            text = text.replace(name, '[NAME]')
-            name = '[NAME]'
-        # Mask name with 50% chance
-
-        tokens = text.split()
-
-        # Mask dropped words with 10% chance
-        tokens = [w if w == '[NAME]' or random.random() > 0.1 else '[MASK]' for w in tokens]
-
-        # Randomly insert the name (if masked, insert actual name)
-        if random.random() < 0.5:
-            insert_pos = random.randint(0, len(tokens))
-            tokens.insert(insert_pos, name)
-        text = ' '.join(tokens)
 
 
         embed = self.tokenizer(

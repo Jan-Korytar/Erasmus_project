@@ -47,7 +47,7 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
         {'params': encoder.parameters(), 'lr': lr * 0.1}
     ])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, num_epochs)
-    mse_loss = nn.MSELoss(reduction='mean')
+    l_loss = nn.L1Loss(reduction='mean')
     perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
 
 
@@ -63,7 +63,7 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
             optimizer.zero_grad()
             output = decoder(last_hidden)  # predicted image
             latent = decoder.module.latent if isinstance(decoder, nn.DataParallel) else decoder.latent
-            loss = (mse_loss(output, target_image) + (
+            loss = (l_loss(output, target_image) + (
                 0.1 * perceptual_loss(output, target_image) if perceptual_loss else 0))
             # + (1e-3 * torch.mean(latent ** 2))) double penalty with adamW
 
