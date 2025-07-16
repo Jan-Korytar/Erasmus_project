@@ -29,7 +29,7 @@ def validate(decoder, encoder, dataloader, device):
 def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs=30, lr=5e-3, device='cuda',
                   percpetual_loss=False):
     '''
-
+    hmm
     '''
     if torch.cuda.device_count() > 1:
         print(f"--- Using {torch.cuda.device_count()} GPUs ---")
@@ -54,6 +54,7 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
     decoder.train()
     encoder.train()
     best_loss = float('inf')
+    tolerance = 10
     for epoch in range(num_epochs):
         epoch_train_loss = 0.0
         for i, (target_image, text_embed) in enumerate(tqdm(train_dataloader)):
@@ -81,11 +82,19 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
         train_losses.append(epoch_train_loss)
         print(
             f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss}, LR: {scheduler.get_last_lr()[0]:.4f}")
-        if val_loss < best_loss and epoch > 10:
-            best_loss = val_loss
-            print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
-            torch.save(decoder.state_dict(), get_project_root() / 'utils' / "decoder_weights.pth")
-            torch.save(decoder.state_dict(), get_project_root() / 'utils' / "encoder_weights.pth")
+        if epoch >= 10:
+            if val_loss < best_loss:
+                tolerance = 10
+                best_loss = val_loss
+                print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
+                torch.save(decoder.state_dict(), get_project_root() / 'utils' / "decoder_weights.pth")
+                torch.save(decoder.state_dict(), get_project_root() / 'utils' / "encoder_weights.pth")
+            else:
+                tolerance -= 1
+                if tolerance <= 0:
+                    print(f'Early stopping at epoch {epoch + 1}/{num_epochs}')
+                    break
+
 
     plot_train_val_losses(train_losses, val_losses)
     return train_losses, val_losses
