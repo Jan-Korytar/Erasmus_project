@@ -106,7 +106,7 @@ if __name__ == '__main__':
                                        return_hidden=False)
 
     # Split datasets
-    total_len = len(full_dataset) // 6
+    total_len = len(full_dataset)
     train_len = int(0.8 * total_len)
     val_len = int(0.1 * total_len)
     test_len = len(full_dataset) - train_len - val_len
