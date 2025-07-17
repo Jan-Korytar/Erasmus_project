@@ -27,7 +27,8 @@ def validate(decoder, encoder, tokenizer, dataloader, device):
     return val_loss
 
 
-def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader, num_epochs=30, lr=5e-3, device='cuda',
+def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader, save_interval=50, num_epochs=30,
+                  lr=5e-3, device='cuda',
                   percpetual_loss=False):
     '''
     hmm
@@ -92,7 +93,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
             scaler.update()
             epoch_train_loss += loss.item()
 
-            if i % 50 == 0:  # save image
+            if i % save_interval == 0:  # save image
                 save_sample_images(torch.cat([output[:4], target_image[:4]], dim=0), filename=f'{epoch}_{i}.jpg')
                 plot_train_val_losses(train_losses, val_losses)
 
@@ -177,5 +178,5 @@ if __name__ == '__main__':
     t, v = train_decoder(decoder=decoder, encoder=bert_encoder, tokenizer=tokenizer, train_dataloader=train_dataloader,
                          percpetual_loss=True,
                   val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
-                  lr=float(training_config['learning_rate']),
+                         lr=float(training_config['learning_rate']), save_interval=training_config['save_interval'],
                   device=device)
