@@ -1,3 +1,4 @@
+import kornia.color as kc
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -107,4 +108,22 @@ class LatentDecorrelationLoss(nn.Module):
 
         off_diag = cov - torch.diag(torch.diag(cov))  # zero out diagonal
         loss = off_diag.pow(2).sum()
+        return loss
+
+
+class ColorLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, output_rgb: torch.Tensor, target_rgb: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            output_rgb: Tensor (B, 3, H, W), range [0,1]
+            target_rgb: Tensor (B, 3, H, W), range [0,1]
+        Returns:
+            Scalar L1 loss on ab channels in LAB color space.
+        """
+        output_lab = kc.rgb_to_lab(output_rgb)
+        target_lab = kc.rgb_to_lab(target_rgb)
+        loss = F.l1_loss(output_lab[:, 1:, :, :], target_lab[:, 1:, :, :])
         return loss
