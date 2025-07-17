@@ -111,21 +111,28 @@ class LatentDecorrelationLoss(nn.Module):
         return loss
 
 
-'''
-class ColorLoss(nn.Module):
+class ColorMomentLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, output_rgb: torch.Tensor, target_rgb: torch.Tensor) -> torch.Tensor:
+    def forward(self, output_rgb, target_rgb):
         """
         Args:
-            output_rgb: Tensor (B, 3, H, W), range [0,1]
-            target_rgb: Tensor (B, 3, H, W), range [0,1]
+            output_rgb: Tensor (B, 3, H, W),
+            target_rgb: Tensor (B, 3, H, W),
         Returns:
-            Scalar L1 loss on ab channels in LAB color space.
+            Scalar loss: L1 loss between color means and stds per channel.
         """
-        output_lab = kc.rgb_to_lab(output_rgb)
-        target_lab = kc.rgb_to_lab(target_rgb)
-        loss = F.l1_loss(output_lab[:, 1:, :, :], target_lab[:, 1:, :, :])
-        return loss
-'''
+        # Compute mean per channel
+        output_rgb = (output_rgb + 1) / 2
+        target_rgb = (target_rgb + 1) / 2
+        output_mean = output_rgb.mean(dim=[2, 3])
+        target_mean = target_rgb.mean(dim=[2, 3])
+        mean_loss = F.l1_loss(output_mean, target_mean)
+
+        # Compute std per channel
+        output_std = output_rgb.std(dim=[2, 3])
+        target_std = target_rgb.std(dim=[2, 3])
+        std_loss = F.l1_loss(output_std, target_std)
+
+        return mean_loss + std_loss

@@ -53,7 +53,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
     l_loss = nn.L1Loss(reduction='mean')
     perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
     clip_loss = CLIPLoss().to(device)
-    # color_loss = ColorLoss().to(device)
+    color_loss = ColorMomentLoss.to(device)
     decorrelation_loss = LatentDecorrelationLoss().to(device)
 
 
@@ -82,9 +82,9 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
 
                 mae_loss = 1 * l_loss(output, target_image)
                 cl_loss = .5 * clip_loss(output, text)
-                #col_loss = 0.01 * color_loss(output, target_image)
+                col_loss = 0.01 * color_loss(output, target_image)
                 dec_loss = 1e-4 * decorrelation_loss(latent)
-                loss = mae_loss + cl_loss + dec_loss  #+ col_loss
+                loss = mae_loss + cl_loss + dec_loss + col_loss
                 if perceptual_loss:
                     loss += 0.1 * perceptual_loss(output, target_image)
 
