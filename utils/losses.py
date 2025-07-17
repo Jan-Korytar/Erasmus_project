@@ -1,4 +1,4 @@
-import kornia.color as kc
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +11,7 @@ class PerceptualLoss(nn.Module):
     def __init__(self, layer_weights=None):
         super().__init__()
 
-        vgg = vgg16(weights='DEFAULT').features.eval()  # Use pretrained VGG16
+        vgg = vgg16(weights='DEFAULT').features.eval()  # Use pretrained VGG1...
         for param in vgg.parameters():
             param.requires_grad = False  # Freeze weights
 
@@ -111,6 +111,7 @@ class LatentDecorrelationLoss(nn.Module):
         return loss
 
 
+'''
 class ColorLoss(nn.Module):
     def __init__(self):
         super().__init__()
@@ -127,3 +128,4 @@ class ColorLoss(nn.Module):
         target_lab = kc.rgb_to_lab(target_rgb)
         loss = F.l1_loss(output_lab[:, 1:, :, :], target_lab[:, 1:, :, :])
         return loss
+'''
