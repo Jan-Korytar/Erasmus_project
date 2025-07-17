@@ -9,13 +9,14 @@ from helpers import *
 from losses import *
 
 
-def validate(decoder, encoder, dataloader, device):
+def validate(decoder, encoder, tokenizer, dataloader, device):
     decoder.eval()
     encoder.eval()
     criterion = nn.MSELoss(reduction='mean')
     val_loss = 0
     with torch.no_grad():
-        for target_image, text_embed in dataloader:
+        for target_image, text in dataloader:
+            text_embed = tokenizer(text, return_tensors='pt', max_length=77, truncation=True, padding='max_length')
             last_hidden = encoder(**text_embed.to(device)).last_hidden_state
             target_image = target_image.to(device)
             output = decoder(last_hidden)  # predicted image
@@ -67,7 +68,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
 
         for i, (target_image, text) in enumerate(tqdm(train_dataloader)):
             optimizer.zero_grad()
-            with autocast(device):
+            with autocast(device):  # memory savings
 
                 tokens = tokenizer(text, return_tensors='pt', max_length=77, truncation=True, padding='max_length')
 
@@ -96,7 +97,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                 plot_train_val_losses(train_losses, val_losses)
 
         scheduler.step()
-        val_loss = validate(decoder, encoder, val_dataloader, device)
+        val_loss = validate(decoder, encoder, tokenizer, val_dataloader, device)
         val_losses.append(val_loss)
         epoch_train_loss = epoch_train_loss / len(train_dataloader)
         train_losses.append(epoch_train_loss)
