@@ -27,7 +27,7 @@ class TextAndImageDataset(Dataset):
             self.images = config['training']['images']
 
         with open(text_path, 'r', encoding='utf-8') as f:
-            self.text = f.read().split('\n')[-1]
+            self.text = f.read().split('\n')[:-1]
 
 
 
