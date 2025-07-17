@@ -1,7 +1,7 @@
 import yaml
 from torch import autocast, GradScaler
 from torch.utils.data import DataLoader, Subset
-from transformers import BertModel, BertTokenizer
+from transformers import AutoModel, AutoTokenizer
 
 from dataset import TextAndImageDataset
 from decoder import Decoder
@@ -166,10 +166,10 @@ if __name__ == '__main__':
     val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1,
                                 pin_memory_device=device)
 
-    tokenizer = BertTokenizer.from_pretrained(model_config['bert_model'])
+    tokenizer = AutoTokenizer.from_pretrained(model_config['bert_model'])
     special_tokens_dict = {'additional_special_tokens': ['[NAME]']}
     tokenizer.add_special_tokens(special_tokens_dict)
-    bert_encoder = BertModel.from_pretrained(model_config['bert_model'])
+    bert_encoder = AutoModel.from_pretrained(model_config['bert_model'])
     bert_encoder.resize_token_embeddings(len(tokenizer))
 
     decoder = Decoder(text_embed_dim=bert_encoder.config.hidden_size, latent_size=model_config['latent_size'],
