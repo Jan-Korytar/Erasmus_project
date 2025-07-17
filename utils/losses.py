@@ -107,7 +107,7 @@ class LatentDecorrelationLoss(nn.Module):
         cov = x @ x.T / x.shape[1]  # shape: (C, C)
 
         off_diag = cov - torch.diag(torch.diag(cov))  # zero out diagonal
-        loss = off_diag.pow(2).sum()
+        loss = off_diag.pow(2).mean()
         return loss
 
 
