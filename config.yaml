@@ -14,7 +14,7 @@ training:
 
 
 model:
-  text_embed_dim: 256
+  bert_model: "prajjwal1/bert-mini"
   num_heads: 4
   decoder_depth: 3
   latent_size: [ 256, 4, 4 ]

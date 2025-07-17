@@ -1,12 +1,12 @@
-import torch.nn as nn
 import yaml
+from torch import autocast, GradScaler
 from torch.utils.data import DataLoader, Subset
-from transformers import BertModel
+from transformers import BertModel, BertTokenizer
 
 from dataset import TextAndImageDataset
 from decoder import Decoder
 from helpers import *
-from perceptual_loss import PerceptualLoss
+from losses import *
 
 
 def validate(decoder, encoder, dataloader, device):
@@ -26,7 +26,7 @@ def validate(decoder, encoder, dataloader, device):
     return val_loss
 
 
-def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs=30, lr=5e-3, device='cuda',
+def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader, num_epochs=30, lr=5e-3, device='cuda',
                   percpetual_loss=False):
     '''
     hmm
@@ -42,43 +42,58 @@ def train_decoder(decoder, encoder, train_dataloader, val_dataloader, num_epochs
     val_losses = []
     decoder = decoder.to(device)
     encoder = encoder.to(device)
+
     optimizer = torch.optim.AdamW([
         {'params': decoder.parameters(), 'lr': lr},
         {'params': encoder.parameters(), 'lr': lr * 0.1}
     ])
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=50,
-        T_mult=2,
-        eta_min=1e-5
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=5e-6)
     l_loss = nn.L1Loss(reduction='mean')
     perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
+    clip_loss = CLIPLoss().to(device)
+    decorrelation_loss = LatentDecorrelationLoss().to(device)
 
 
     decoder.train()
     encoder.train()
+    scaler = GradScaler(device)
     best_loss = float('inf')
     tolerance = 10
+
     for epoch in range(num_epochs):
         epoch_train_loss = 0.0
-        for i, (target_image, text_embed) in enumerate(tqdm(train_dataloader)):
-            last_hidden = encoder(**text_embed.to(device)).last_hidden_state  # shape: (B, seq_len, 256)
-            target_image: torch.Tensor = target_image.to(device)  # shape: (B, 3, H, W)
+        if epoch == 150:
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=450, eta_min=5e-6)
 
+        for i, (target_image, text) in enumerate(tqdm(train_dataloader)):
             optimizer.zero_grad()
-            output = decoder(last_hidden)  # predicted image
-            latent = decoder.module.latent if isinstance(decoder, nn.DataParallel) else decoder.latent
-            loss = (l_loss(output, target_image) + (
-                0.1 * perceptual_loss(output, target_image) if perceptual_loss else 0))
+            with autocast(device):
+
+                tokens = tokenizer(text, return_tensors='pt', max_length=77, truncation=True, padding='max_length')
+
+                last_hidden = encoder(**tokens.to(device)).last_hidden_state  # shape: (B, seq_len, 256)
+                target_image: torch.Tensor = target_image.to(device)  # shape: (B, 3, H, W)
+
+                output = decoder(last_hidden)  # predicted image
+                latent = decoder.module.latent if isinstance(decoder, nn.DataParallel) else decoder.latent
+
+                mae_loss = 1 * l_loss(output, target_image)
+                cl_loss = .5 * clip_loss(output, text)
+                dec_loss = 1e-4 * decorrelation_loss(latent)
+                loss = mae_loss + cl_loss + dec_loss
+                if perceptual_loss:
+                    loss += 0.1 * perceptual_loss(output, target_image)
+
             # + (1e-3 * torch.mean(latent ** 2))) double penalty with adamW
 
-            loss.backward()
-            optimizer.step()
-
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             epoch_train_loss += loss.item()
+
             if i % 50 == 0:  # save image
                 save_sample_images(torch.cat([output[:4], target_image[:4]], dim=0), filename=f'{epoch}_{i}.jpg')
+                plot_train_val_losses(train_losses, val_losses)
 
         scheduler.step()
         val_loss = validate(decoder, encoder, val_dataloader, device)
@@ -119,7 +134,11 @@ if __name__ == '__main__':
     full_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
                                        project_root / 'data' / 'images' /
                                        f'{model_config["output_size"][1]}',
-                                       return_hidden=False)
+                                       return_hidden=False, augment_text=True, augment_images=False)
+    val_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
+                                      project_root / 'data' / 'images' /
+                                      f'{model_config["output_size"][1]}',
+                                      return_hidden=False, augment_text=False, augment_images=False)
 
     # Split datasets
     total_len = len(full_dataset)
@@ -138,18 +157,24 @@ if __name__ == '__main__':
     # Generate shuffled indices
     indices = torch.randperm(total_len).tolist()[:val_size]
 
-    val_dataset = Subset(full_dataset, indices)
+    val_dataset = Subset(val_dataset, indices)
 
     train_dataloader = DataLoader(full_dataset, batch_size=training_config['batch_size'], shuffle=True,
                                   pin_memory=True, num_workers=1, pin_memory_device=device)
     val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False, pin_memory=True, num_workers=1,
                                 pin_memory_device=device)
-    decoder = Decoder(text_embed_dim=model_config['text_embed_dim'], latent_size=model_config['latent_size'],
-                      decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
-    bert_encoder = BertModel.from_pretrained("prajjwal1/bert-mini")
-    bert_encoder.resize_token_embeddings(len(full_dataset.tokenizer))
 
-    t, v = train_decoder(decoder=decoder, encoder=bert_encoder, train_dataloader=train_dataloader, percpetual_loss=True,
+    tokenizer = BertTokenizer.from_pretrained(model_config['bert_model'])
+    special_tokens_dict = {'additional_special_tokens': ['[NAME]']}
+    tokenizer.add_special_tokens(special_tokens_dict)
+    bert_encoder = BertModel.from_pretrained(model_config['bert_model'])
+    bert_encoder.resize_token_embeddings(len(tokenizer))
+
+    decoder = Decoder(text_embed_dim=bert_encoder.config.hidden_size, latent_size=model_config['latent_size'],
+                      decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
+
+    t, v = train_decoder(decoder=decoder, encoder=bert_encoder, tokenizer=tokenizer, train_dataloader=train_dataloader,
+                         percpetual_loss=True,
                   val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
                   lr=float(training_config['learning_rate']),
                   device=device)
