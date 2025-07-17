@@ -53,7 +53,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
     l_loss = nn.L1Loss(reduction='mean')
     perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
     clip_loss = CLIPLoss().to(device)
-    color_loss = ColorMomentLoss.to(device)
+    color_loss = ColorMomentLoss().to(device)
     decorrelation_loss = LatentDecorrelationLoss().to(device)
 
 
