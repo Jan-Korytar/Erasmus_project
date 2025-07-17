@@ -61,7 +61,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
     encoder.train()
     scaler = GradScaler(device)
     best_loss = float('inf')
-    tolerance = 10
+    tolerance = 80
 
     for epoch in range(num_epochs):
         epoch_train_loss = 0.0
@@ -105,10 +105,10 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
         epoch_train_loss = epoch_train_loss / len(train_dataloader)
         train_losses.append(epoch_train_loss)
         print(
-            f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {scheduler.get_last_lr()[0]:.6f}")
+            f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {scheduler.get_last_lr()[0]:.6f}, Tolerance: {tolerance}")
         if epoch >= 10:
             if val_loss < best_loss:
-                tolerance = 10
+                tolerance = 80
                 best_loss = val_loss
                 print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
                 torch.save(decoder.state_dict(), get_project_root() / 'utils' / "decoder_weights.pth")
@@ -116,8 +116,8 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
             else:
                 tolerance -= 1
                 if tolerance <= 0:
-                    print(f'WOULD: Early stopping at epoch {epoch + 1}/{num_epochs}')
-                    # break
+                    print(f'Early stopping at epoch {epoch + 1}/{num_epochs}')
+                    break
 
 
     plot_train_val_losses(train_losses, val_losses)
