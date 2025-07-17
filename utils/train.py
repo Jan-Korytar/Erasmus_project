@@ -135,6 +135,15 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
         training_config = config['training']
         model_config = config['model']
+
+    tokenizer = AutoTokenizer.from_pretrained(model_config['bert_model'])
+    special_tokens_dict = {'additional_special_tokens': ['[NAME]']}
+    tokenizer.add_special_tokens(special_tokens_dict)
+    bert_encoder = AutoModel.from_pretrained(model_config['bert_model'])
+    bert_encoder.resize_token_embeddings(len(tokenizer))
+    decoder = Decoder(text_embed_dim=bert_encoder.config.hidden_size, latent_size=model_config['latent_size'],
+                      decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
+
     full_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
                                        project_root / 'data' / 'images' /
                                        f'{model_config["output_size"][1]}',
@@ -168,17 +177,10 @@ if __name__ == '__main__':
     val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1,
                                 pin_memory_device=device)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_config['bert_model'])
-    special_tokens_dict = {'additional_special_tokens': ['[NAME]']}
-    tokenizer.add_special_tokens(special_tokens_dict)
-    bert_encoder = AutoModel.from_pretrained(model_config['bert_model'])
-    bert_encoder.resize_token_embeddings(len(tokenizer))
 
-    decoder = Decoder(text_embed_dim=bert_encoder.config.hidden_size, latent_size=model_config['latent_size'],
-                      decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
 
     t, v = train_decoder(decoder=decoder, encoder=bert_encoder, tokenizer=tokenizer, train_dataloader=train_dataloader,
                          percpetual_loss=True,
-                  val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
+                         val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
                          lr=float(training_config['learning_rate']), save_interval=training_config['save_interval'],
-                  device=device)
+                         device=device)
