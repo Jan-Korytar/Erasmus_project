@@ -16,7 +16,7 @@ def validate(decoder, encoder, tokenizer, dataloader, device):
     val_loss = 0
     with torch.no_grad():
         for target_image, text in dataloader:
-            text_embed = tokenizer(text, return_tensors='pt', max_length=77, truncation=True, padding='max_length')
+            text_embed = tokenizer(text, return_tensors='pt')
             last_hidden = encoder(**text_embed.to(device)).last_hidden_state
             target_image = target_image.to(device)
             output = decoder(last_hidden)  # predicted image
@@ -71,7 +71,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
             optimizer.zero_grad()
             with autocast(device):  # memory savings
 
-                tokens = tokenizer(text, return_tensors='pt', max_length=77, truncation=True, padding='max_length')
+                tokens = tokenizer(text, return_tensors='pt', max_length=120, truncation=True, padding='max_length')
 
                 last_hidden = encoder(**tokens.to(device)).last_hidden_state  # shape: (B, seq_len, 256)
                 target_image: torch.Tensor = target_image.to(device)  # shape: (B, 3, H, W)
@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
     train_dataloader = DataLoader(full_dataset, batch_size=training_config['batch_size'], shuffle=True,
                                   pin_memory=True, num_workers=1, pin_memory_device=device)
-    val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False, pin_memory=True, num_workers=1,
+    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1,
                                 pin_memory_device=device)
 
     tokenizer = BertTokenizer.from_pretrained(model_config['bert_model'])
