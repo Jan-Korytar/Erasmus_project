@@ -97,7 +97,7 @@ class PixelShuffleUpsample(nn.Module):
     Upsamples using pixel shuffle technique after increasing channel dimensions.
     """
 
-    def __init__(self, in_channels, out_channels, upscale_factor=2):
+    def __init__(self, in_channels, out_channels, num_groups=8, upscale_factor=2):
         super().__init__()
         self.conv = nn.Conv2d(
             in_channels,
@@ -106,7 +106,7 @@ class PixelShuffleUpsample(nn.Module):
             padding=1
         )
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
-        self.norm = nn.GroupNorm(8, out_channels)
+        self.norm = nn.GroupNorm(num_groups, out_channels)
         self.act = nn.GELU()
 
     def forward(self, x):
@@ -142,7 +142,7 @@ class Decoder(nn.Module):
     """
 
     def __init__(self, text_embed_dim, latent_size=(512, 8, 8), num_heads=8, decoder_depth=4, output_size=(3, 215, 215),
-                 seq_len=168):
+                 seq_len=168, decay_channels=0.75):
         super().__init__()
         self.output_size = output_size
         self.latent_size = latent_size
@@ -163,18 +163,31 @@ class Decoder(nn.Module):
         self.attentions = nn.ModuleList()
         self.upscales = nn.ModuleList()
         size = latent_size[-1]
+
+        def closest_divisor(value, target=8):
+            divisors = [d for d in range(1, value + 1) if value % d == 0]
+            closest = min(divisors, key=lambda x: abs(x - target))
+            return int(closest)
+
+
         for d in range(decoder_depth):
             self.resblocks.append(
-                ResBlock(in_channels=current_channels, out_channels=current_channels, num_groups=current_channels // 8))
-            self.upscales.append(ConvTranspose2d(in_channels=current_channels, out_channels=current_channels // 2)
+                ResBlock(in_channels=current_channels, out_channels=current_channels,
+                         num_groups=current_channels // closest_divisor(current_channels, 8)))
+            self.upscales.append(
+                ConvTranspose2d(in_channels=current_channels, out_channels=int(current_channels * decay_channels), )
                                  if d != decoder_depth - 1 else PixelShuffleUpsample(current_channels,
-                                                                                     current_channels // 2, ))
-            current_channels = current_channels // 2
+                                                                                     int(current_channels * decay_channels),
+                                                                                     num_groups=current_channels // closest_divisor(
+                                                                                         current_channels, 8)))
+            current_channels = int(current_channels * decay_channels)
             size *= 2
-            self.attentions.append(CrossAttention(num_heads=num_heads, embed_query_dim=current_channels,
+            self.attentions.append(
+                CrossAttention(num_heads=closest_divisor(current_channels, 8), embed_query_dim=current_channels,
                                                   vdim_kdim=text_embed_dim, H_W=size))
 
-        self.last_conv = nn.Sequential(ResBlock(in_channels=current_channels, out_channels=current_channels),
+        self.last_conv = nn.Sequential(ResBlock(in_channels=current_channels, out_channels=current_channels,
+                                                num_groups=current_channels // closest_divisor(current_channels, 8)),
                                        nn.Conv2d(current_channels, 3, kernel_size=1))
 
 
@@ -206,7 +219,7 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
         training_config = config['training']
         model_config = config['model']
-    decoder = Decoder(text_embed_dim=model_config['text_embed_dim'], latent_size=model_config['latent_size'],
+    decoder = Decoder(text_embed_dim=256, latent_size=model_config['latent_size'],
                       decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
 
     out = decoder(torch.rand(8, 168, 256))

@@ -11,7 +11,7 @@ from utils.helpers import get_project_root
 
 class TextAndImageDataset(Dataset):
     def __init__(self, text_path, image_path, augment_images=False, return_hidden=True, augment_text=True):
-        self.image_paths = list(Path(image_path).glob('*.jpg'))
+        self.image_paths = sorted(Path(image_path).glob('*.jpg'), key=lambda p: p.name)
         self.augment_images = augment_images
         self.augment_text = augment_text
         self.image_transform = T.Compose([

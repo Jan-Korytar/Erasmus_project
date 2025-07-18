@@ -18,5 +18,5 @@ model:
   num_heads: 4
   decoder_depth: 3
   latent_size: [ 256, 4, 4 ]
-  output_size: [ 3, 215, 215 ]
+  output_size: [ 3, 128, 128 ]
   sequence_length: 168
