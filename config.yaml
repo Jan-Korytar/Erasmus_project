@@ -11,6 +11,7 @@ training:
   best_model_epoch_threshold: 10
   images: 1000
   use_overlapping: true
+  print_summary: true
 
 
 model:

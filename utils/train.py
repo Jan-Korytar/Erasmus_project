@@ -1,6 +1,7 @@
 import yaml
 from torch import autocast, GradScaler
 from torch.utils.data import DataLoader, Subset
+from torchinfo import summary
 from transformers import AutoModel, AutoTokenizer
 
 from utils.dataset import TextAndImageDataset
@@ -146,6 +147,7 @@ if __name__ == '__main__':
     decoder = Decoder(text_embed_dim=bert_encoder.config.hidden_size, latent_size=model_config['latent_size'],
                       decoder_depth=model_config['decoder_depth'], output_size=model_config['output_size'])
 
+
     full_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
                                        project_root / 'data' / 'images' /
                                        f'{model_config["output_size"][1]}',
@@ -178,7 +180,8 @@ if __name__ == '__main__':
                                   pin_memory=True, num_workers=1, pin_memory_device=device)
     val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1,
                                 pin_memory_device=device)
-
+    if training_config['print_summary']:
+        summary(decoder, input_size=(training_config['batch_size'], 168, 256))
 
 
     t, v = train_decoder(decoder=decoder, encoder=bert_encoder, tokenizer=tokenizer, train_dataloader=train_dataloader,

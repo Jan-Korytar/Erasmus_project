@@ -178,8 +178,10 @@ class Decoder(nn.Module):
                 ConvTranspose2d(in_channels=current_channels, out_channels=int(current_channels * decay_channels), )
                                  if d != decoder_depth - 1 else PixelShuffleUpsample(current_channels,
                                                                                      int(current_channels * decay_channels),
-                                                                                     num_groups=current_channels // closest_divisor(
-                                                                                         current_channels, 8)))
+                                                                                     num_groups=int(
+                                                                                         current_channels * decay_channels) // closest_divisor(
+                                                                                         int(current_channels * decay_channels),
+                                                                                         8)))
             current_channels = int(current_channels * decay_channels)
             size *= 2
             self.attentions.append(
