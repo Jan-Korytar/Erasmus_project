@@ -181,7 +181,7 @@ if __name__ == '__main__':
     val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=1,
                                 pin_memory_device=device)
     if training_config['print_summary']:
-        summary(decoder, input_size=(training_config['batch_size'], 168, 256))
+        summary(decoder, input_size=(training_config['batch_size'], 120, bert_encoder.config.hidden_size))
 
 
     t, v = train_decoder(decoder=decoder, encoder=bert_encoder, tokenizer=tokenizer, train_dataloader=train_dataloader,
