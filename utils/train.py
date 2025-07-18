@@ -97,8 +97,8 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                 cl_loss = .5 * clip_loss(output, text)
                 col_loss = 0.01 * color_loss(output, target_image)
                 dec_loss = 1e-2 * decorrelation_loss(latent)
-                perceptual_loss = 0.1 * perceptual_loss(output, target_image)
-                loss = mae_loss + cl_loss + dec_loss + col_loss + perceptual_loss
+                per_loss = 0.1 * perceptual_loss(output, target_image)
+                loss = mae_loss + cl_loss + dec_loss + col_loss + per_loss
 
             # + (1e-3 * torch.mean(latent ** 2))) double penalty with adamW
 
@@ -111,7 +111,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
             epoch_cl += cl_loss.item()
             epoch_col += col_loss.item()
             epoch_dec += dec_loss.item()
-            epoch_per += perceptual_loss.item()
+            epoch_per += per_loss.item()
 
 
             if i % save_interval == 0:
