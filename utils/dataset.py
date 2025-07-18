@@ -37,7 +37,7 @@ class TextAndImageDataset(Dataset):
 
     def text_augmentation(self, text: str):
         if not self.augment_text:
-            return None, text
+            return '_', text
 
         org_name, text = text.split(';', 1)
         sentences = text.split('.')
