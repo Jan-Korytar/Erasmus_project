@@ -41,8 +41,15 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
     else:
         print(f"--- Using single {device} ---")
 
-    train_losses = []
     val_losses = []
+
+    train_losses = []
+    mae_losses = []
+    cl_losses = []
+    col_losses = []
+    dec_losses = []
+    per_losses = []
+
     decoder = decoder.to(device)
     encoder = encoder.to(device)
 
@@ -66,6 +73,11 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
 
     for epoch in range(num_epochs):
         epoch_train_loss = 0.0
+        epoch_mae = 0.0
+        epoch_cl = 0
+        epoch_col = 0
+        epoch_dec = 0
+        epoch_per = 0
         if epoch == 150:
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=450, eta_min=5e-6)
 
@@ -85,9 +97,8 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                 cl_loss = .5 * clip_loss(output, text)
                 col_loss = 0.01 * color_loss(output, target_image)
                 dec_loss = 1e-2 * decorrelation_loss(latent)
-                loss = mae_loss + cl_loss + dec_loss + col_loss
-                if perceptual_loss:
-                    loss += 0.1 * perceptual_loss(output, target_image)
+                perceptual_loss = 0.1 * perceptual_loss(output, target_image)
+                loss = mae_loss + cl_loss + dec_loss + col_loss + perceptual_loss
 
             # + (1e-3 * torch.mean(latent ** 2))) double penalty with adamW
 
@@ -95,6 +106,13 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
             scaler.step(optimizer)
             scaler.update()
             epoch_train_loss += loss.item()
+
+            epoch_mae += mae_loss.item()
+            epoch_cl += cl_loss.item()
+            epoch_col += col_loss.item()
+            epoch_dec += dec_loss.item()
+            epoch_per += perceptual_loss.item()
+
 
             if i % save_interval == 0:
                 names = '_'.join(name)  # save image
@@ -107,8 +125,16 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
         val_losses.append(val_loss)
         epoch_train_loss = epoch_train_loss / len(train_dataloader)
         train_losses.append(epoch_train_loss)
+        mae_losses.append(mae_loss)
+        cl_losses.append(cl_loss)
+        col_losses.append(col_loss)
+        dec_losses.append(dec_loss)
+        per_losses.append(perceptual_loss)
+
         print(
             f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {scheduler.get_last_lr()[0]:.6f}, Tolerance: {tolerance}")
+        print(
+            f'MAE: {mae_loss:.4f}, CLIP: {cl_loss:.4f}, Color: {col_loss:.4f}, Decorrelation: {dec_loss:.4f}, Perceptual: {perceptual_loss:.4f}')
         if epoch >= 10:
             if val_loss < best_loss:
                 tolerance = 80

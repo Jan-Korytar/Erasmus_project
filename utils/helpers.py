@@ -46,18 +46,16 @@ def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
     return mean, std
 
 
-def plot_train_val_losses(train_losses, val_losses):
+def plot_train_val_losses(train_losses, val_losses, extra_losses=None):
     epochs = range(1, len(train_losses) + 1)
 
+    # --- Main Train vs Val Loss Plot ---
     fig, ax1 = plt.subplots()
-
-    # Primary y-axis for training loss
     ax1.set_xlabel('Epoch')
     ax1.set_ylabel('Train Loss', color='tab:blue')
     ax1.plot(epochs, train_losses, label='Train Loss', color='tab:blue')
     ax1.tick_params(axis='y', labelcolor='tab:blue')
 
-    # Secondary y-axis for validation loss
     ax2 = ax1.twinx()
     ax2.set_ylabel('Validation Loss', color='tab:red')
     ax2.plot(epochs, val_losses, label='Val Loss', color='tab:red')
@@ -68,6 +66,28 @@ def plot_train_val_losses(train_losses, val_losses):
     plt.grid(True)
     plt.savefig(get_project_root() / 'utils' / 'train_val_loss.jpg')
     plt.close()
+
+    # --- Additional Losses Plot ---
+    if extra_losses:
+        keys = list(extra_losses.keys())
+        n = 4
+        rows = 2
+        fig, axes = plt.subplots(rows, 2, figsize=(10, 4 * rows))
+        axes = axes.flatten() if n > 1 else [axes]
+
+        for idx, key in enumerate(keys):
+            axes[idx].plot(epochs, extra_losses[key], label=key)
+            axes[idx].set_title(f'{key} over Epochs')
+            axes[idx].set_xlabel('Epoch')
+            axes[idx].set_ylabel(key)
+            axes[idx].grid(True)
+
+        for idx in range(len(keys), len(axes)):
+            fig.delaxes(axes[idx])  # remove unused axes
+
+        fig.tight_layout()
+        plt.savefig(get_project_root() / 'utils' / 'individual_losses.jpg')
+        plt.close()
 
 
 def save_sample_images(tensor, filename, unnormalize=True):
