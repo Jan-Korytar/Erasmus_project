@@ -134,7 +134,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
         print(
             f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {scheduler.get_last_lr()[0]:.6f}, Tolerance: {tolerance}")
         print(
-            f'MAE: {mae_loss:.4f}, CLIP: {cl_loss:.4f}, Color: {col_loss:.4f}, Decorrelation: {dec_loss:.4f}, Perceptual: {perceptual_loss:.4f}')
+            f'MAE: {mae_loss:.4f}, CLIP: {cl_loss:.4f}, Color: {col_loss:.4f}, Decorrelation: {dec_loss:.4f}, Perceptual: {per_loss:.4f}')
         if epoch >= 10:
             if val_loss < best_loss:
                 tolerance = 80
