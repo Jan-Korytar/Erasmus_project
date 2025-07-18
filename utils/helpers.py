@@ -77,7 +77,7 @@ def save_sample_images(tensor, filename, unnormalize=True):
     """
 
     path = get_project_root() / 'utils' / 'outputs'
-    if os.path.exists(path) and filename == '0_0.jpg':
+    if os.path.exists(path) and '000_0' in filename:
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
 
