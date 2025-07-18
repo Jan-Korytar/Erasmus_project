@@ -9,7 +9,7 @@ training:
   learning_rate: 4e-4
   save_interval: 50
   best_model_epoch_threshold: 10
-  images: 200
+  images: 1000
   use_overlapping: true
 
 

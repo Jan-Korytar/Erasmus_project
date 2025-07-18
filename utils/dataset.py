@@ -6,7 +6,7 @@ import torchvision.transforms as T
 import yaml
 from torch.utils.data import Dataset
 
-from helpers import get_project_root
+from utils.helpers import get_project_root
 
 
 class TextAndImageDataset(Dataset):
@@ -37,9 +37,9 @@ class TextAndImageDataset(Dataset):
 
     def text_augmentation(self, text: str):
         if not self.augment_text:
-            return text
+            return None, text
 
-        name, text = text.split(';', 1)
+        org_name, text = text.split(';', 1)
         sentences = text.split('.')
         sentences = random.sample(sentences, int(.5 * (len(sentences))))
 
@@ -51,13 +51,15 @@ class TextAndImageDataset(Dataset):
         sentences = [drop_words(s) for s in sentences]
         if random.random() < 0.35:
             name = '[NAME]'
+        else:
+            name = org_name
 
         insert_pos = random.randint(0, int(len(sentences) * .66))  # should not be at the end
         sentences.insert(insert_pos, name)
 
         text = '. '.join(sentences)
 
-        return text
+        return org_name, text
 
 
     def __getitem__(self, idx):
@@ -69,6 +71,6 @@ class TextAndImageDataset(Dataset):
             image = self.image_transform(image)
         image = self.normalize(image)
 
-        text = self.text_augmentation(self.text[idx])
+        name, text = self.text_augmentation(self.text[idx])
 
-        return image, text
+        return image, text, name

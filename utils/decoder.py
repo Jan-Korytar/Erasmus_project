@@ -5,7 +5,7 @@ import yaml
 from torch.ao.nn.quantized import ConvTranspose2d
 from torchinfo import summary
 
-from helpers import get_project_root
+from utils.helpers import get_project_root
 
 
 #latent space 256, 8, 8

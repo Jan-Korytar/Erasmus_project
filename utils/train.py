@@ -3,10 +3,10 @@ from torch import autocast, GradScaler
 from torch.utils.data import DataLoader, Subset
 from transformers import AutoModel, AutoTokenizer
 
-from dataset import TextAndImageDataset
-from decoder import Decoder
-from helpers import *
-from losses import *
+from utils.dataset import TextAndImageDataset
+from utils.decoder import Decoder
+from utils.helpers import *
+from utils.losses import *
 
 
 def validate(decoder, encoder, tokenizer, dataloader, device):
@@ -15,7 +15,7 @@ def validate(decoder, encoder, tokenizer, dataloader, device):
     criterion = nn.MSELoss(reduction='mean')
     val_loss = 0
     with torch.no_grad():
-        for target_image, text in dataloader:
+        for target_image, text, _ in dataloader:
             text_embed = tokenizer(text, return_tensors='pt')
             last_hidden = encoder(**text_embed.to(device)).last_hidden_state
             target_image = target_image.to(device)
@@ -53,7 +53,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
     l_loss = nn.L1Loss(reduction='mean')
     perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
     clip_loss = CLIPLoss().to(device)
-    # color_loss = ColorMomentLoss().to(device)
+    color_loss = ColorMomentLoss().to(device)
     decorrelation_loss = LatentDecorrelationLoss().to(device)
 
 
@@ -68,7 +68,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
         if epoch == 150:
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=450, eta_min=5e-6)
 
-        for i, (target_image, text) in enumerate(tqdm(train_dataloader)):
+        for i, (target_image, text, name) in enumerate(tqdm(train_dataloader)):
             optimizer.zero_grad()
             with autocast(device):  # memory savings
 
@@ -82,9 +82,9 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
 
                 mae_loss = 1 * l_loss(output, target_image)
                 cl_loss = .5 * clip_loss(output, text)
-                #col_loss = 0.01 * color_loss(output, target_image)
-                dec_loss = 1e-4 * decorrelation_loss(latent)
-                loss = mae_loss + cl_loss + dec_loss  #+ col_loss
+                col_loss = 0.01 * color_loss(output, target_image)
+                dec_loss = 1e-2 * decorrelation_loss(latent)
+                loss = mae_loss + cl_loss + dec_loss + col_loss
                 if perceptual_loss:
                     loss += 0.1 * perceptual_loss(output, target_image)
 
@@ -95,8 +95,10 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
             scaler.update()
             epoch_train_loss += loss.item()
 
-            if i % save_interval == 0:  # save image
-                save_sample_images(torch.cat([output[:4], target_image[:4]], dim=0), filename=f'{epoch}_{i}.jpg')
+            if i % save_interval == 0:
+                names = '_'.join(name)  # save image
+                save_sample_images(torch.cat([output[:4], target_image[:4]], dim=0),
+                                   filename=f'{epoch:03}_{i}_{names}.jpg')
                 plot_train_val_losses(train_losses, val_losses)
 
         scheduler.step()
@@ -111,8 +113,8 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                 tolerance = 80
                 best_loss = val_loss
                 print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
-                torch.save(decoder.state_dict(), get_project_root() / 'utils' / "decoder_weights.pth")
-                torch.save(encoder.state_dict(), get_project_root() / 'utils' / "encoder_weights.pth")
+                torch.save(decoder.state_dict(), get_project_root() / 'models' / "decoder_weights.pth")
+                torch.save(encoder.state_dict(), get_project_root() / 'models' / "encoder_weights.pth")
             else:
                 tolerance -= 1
                 if tolerance <= 0:
