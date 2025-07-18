@@ -124,12 +124,17 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
         val_loss = validate(decoder, encoder, tokenizer, val_dataloader, device)
         val_losses.append(val_loss)
         epoch_train_loss = epoch_train_loss / len(train_dataloader)
+        epoch_mae /= len(train_dataloader)
+        epoch_cl /= len(train_dataloader)
+        epoch_col /= len(train_dataloader)
+        epoch_dec /= len(train_dataloader)
+        epoch_per /= len(train_dataloader)
         train_losses.append(epoch_train_loss)
         mae_losses.append(mae_loss)
         cl_losses.append(cl_loss)
         col_losses.append(col_loss)
         dec_losses.append(dec_loss)
-        per_losses.append(perceptual_loss)
+        per_losses.append(per_loss)
 
         print(
             f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {scheduler.get_last_lr()[0]:.6f}, Tolerance: {tolerance}")
