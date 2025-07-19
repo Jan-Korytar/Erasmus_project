@@ -50,8 +50,8 @@ class TextAndImageDataset(Dataset):
 
         org_name, text = text.split(';', 1)
         sentences = text.split('.')
-        keep = random.random() + .4 * .5
-        sentences = random.sample(sentences, int(keep * (len(sentences))))
+        keep = random.uniform(0.2, 0.5)
+        sentences = random.sample(sentences, min(1, int(keep * (len(sentences)))))
 
         def drop_words(sentence):
             tokens = sentence.split()

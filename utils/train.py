@@ -187,13 +187,11 @@ if __name__ == '__main__':
 
     full_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
                                        project_root / 'data' / 'images' /
-                                       f'{model_config["output_size"][1]}',
-                                       return_hidden=False, augment_text=True, augment_images=False)
+                                       f'{model_config["output_size"][1]}', augment_text=True, augment_images=False)
     # Contrary to the normal train/val/test splits, these are overlapping as pokemons are finite set
     val_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
                                       project_root / 'data' / 'images' /
-                                      f'{model_config["output_size"][1]}',
-                                      return_hidden=False, augment_text=False, augment_images=False)
+                                      f'{model_config["output_size"][1]}', augment_text=False, augment_images=False)
 
     # Not used code for not overlapping code
     # total_len = len(full_dataset)
