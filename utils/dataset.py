@@ -59,7 +59,7 @@ class TextAndImageDataset(Dataset):
             return ' '.join(kept)
 
         sentences = [drop_words(s) for s in sentences]
-        if random.random() < 0.35:
+        if random.random() < 0.75:
             name = '[NAME]'
         else:
             name = org_name
