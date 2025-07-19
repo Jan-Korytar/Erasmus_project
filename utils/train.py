@@ -145,7 +145,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
             f'MAE: {mae_loss:.4f}, CLIP: {cl_loss:.4f}, Color: {col_loss:.4f}, Decorrelation: {dec_loss:.4f}, Perceptual: {per_loss:.4f}')
         if epoch >= 10:
             if val_loss < best_loss:
-                tolerance = 80
+                tolerance = 35
                 best_loss = val_loss
                 print(f'Saving the best model at epoch {epoch + 1}/{num_epochs}')
                 torch.save(decoder.state_dict(), get_project_root() / 'models' / "decoder_weights.pth")
