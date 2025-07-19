@@ -215,7 +215,7 @@ class Decoder(nn.Module):
 
         # potentially make the output the right shape.
         if x.shape[1:] != self.output_size:
-            x = F.interpolate(x, size=self.output_size[1:], mode="bilinear", align_corners=True)
+            x = F.interpolate(x, size=self.output_size[1:], mode="bilinear", align_corners=False)
         return x
 
 
