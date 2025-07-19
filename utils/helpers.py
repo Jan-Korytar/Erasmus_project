@@ -11,6 +11,10 @@ from tqdm import tqdm
 
 
 def get_project_root() -> Path:
+    '''
+    Returns the project root folder.
+    :return: Pathlike object
+    '''
     return Path(__file__).parent.parent
 
 def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
@@ -32,12 +36,11 @@ def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
             output_path = os.path.join(output_dir, out_name)
             im.save(output_path, format="JPEG", quality=100)
 
-            # Convert to numpy array, normalize pixels to [0,1]
+
             img_np = np.array(im).astype(np.float32) / 255.0
             means.append(img_np.mean(axis=(0, 1)))  # per channel mean
             stds.append(img_np.std(axis=(0, 1)))  # per channel std
 
-    # Calculate dataset mean and std over all images
     mean = np.mean(means, axis=0)
     std = np.mean(stds, axis=0)
 
@@ -47,9 +50,17 @@ def convert_images_to_jpg(input_dir, output_dir, size=(128, 128)):
 
 
 def plot_train_val_losses(train_losses, val_losses, extra_losses=None):
+    '''
+    Plot losses over epochs. Save jpg image.
+
+    :param train_losses: list of train losses
+    :param val_losses: list of val losses
+    :param extra_losses: list of extra losses
+    :return: None
+    '''
     epochs = range(1, len(train_losses) + 1)
 
-    # --- Main Train vs Val Loss Plot ---
+    # Main Train vs Val Loss Plot
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('Epoch')
     ax1.set_ylabel('Train Loss', color='tab:blue')
@@ -67,7 +78,7 @@ def plot_train_val_losses(train_losses, val_losses, extra_losses=None):
     plt.savefig(get_project_root() / 'utils' / 'train_val_loss.jpg')
     plt.close()
 
-    # --- Additional Losses Plot ---
+    # Additional Losses Plot
     if extra_losses:
         keys = list(extra_losses.keys())
         n = 4
@@ -91,10 +102,13 @@ def plot_train_val_losses(train_losses, val_losses, extra_losses=None):
 
 
 def save_sample_images(tensor, filename, unnormalize=True):
-    """
-    Saves a batch of images to a file.
-    tensor: (B, 3, H, W)
-    """
+    '''
+
+    :param tensor: Batch of image tensors [B, 3, H, W]
+    :param filename: str
+    :param unnormalize: default True
+    :return:
+    '''
 
     path = get_project_root() / 'utils' / 'outputs'
     if os.path.exists(path) and '000_0' in filename:

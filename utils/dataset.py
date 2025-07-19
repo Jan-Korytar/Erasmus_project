@@ -10,7 +10,17 @@ from utils.helpers import get_project_root
 
 
 class TextAndImageDataset(Dataset):
-    def __init__(self, text_path, image_path, augment_images=False, return_hidden=True, augment_text=True):
+    """
+    Dataset combining text and images with optional augmentations.
+
+    Args:
+        text_path (str or Path): Path to the text file containing text entries.
+        image_path (str or Path): Directory containing image files (*.jpg).
+        augment_images (bool): Whether to apply image augmentations. Default is False.
+        augment_text (bool): Whether to apply text augmentations. Default is True.
+    """
+
+    def __init__(self, text_path, image_path, augment_images=False, augment_text=True):
         self.image_paths = sorted(Path(image_path).glob('*.jpg'), key=lambda p: p.name)
         self.augment_images = augment_images
         self.augment_text = augment_text
@@ -21,8 +31,7 @@ class TextAndImageDataset(Dataset):
 
         self.normalize = T.Normalize((0.5,), (0.5,))
 
-
-        with open(get_project_root() / 'config.yaml') as f:
+        with open(get_project_root() / 'config.yml') as f:
             config = yaml.safe_load(f)
             self.images = config['training']['images']
 
@@ -41,7 +50,8 @@ class TextAndImageDataset(Dataset):
 
         org_name, text = text.split(';', 1)
         sentences = text.split('.')
-        sentences = random.sample(sentences, int(.5 * (len(sentences))))
+        keep = random.random() + .4 * .5
+        sentences = random.sample(sentences, int(keep * (len(sentences))))
 
         def drop_words(sentence):
             tokens = sentence.split()

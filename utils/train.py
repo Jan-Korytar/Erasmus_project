@@ -28,16 +28,16 @@ def validate(decoder, encoder, tokenizer, dataloader, device):
     return val_loss
 
 
-def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader, save_interval=50, num_epochs=30,
-                  lr=5e-3, device='cuda',
-                  percpetual_loss=False):
-    '''
-    hmm
-    '''
+def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader, save_interval=50, num_epochs=100,
+                  lr=5e-3, device='cuda'):
+    """
+    Main training loop, trains the decoder, finetunes the encoder and saves the model.
+    :return: train_losses, val_losses
+    """
     if torch.cuda.device_count() > 1:
         print(f"--- Using {torch.cuda.device_count()} GPUs ---")
         decoder = nn.DataParallel(decoder)
-        encoder = nn.DataParallel(bert_encoder)
+        encoder = nn.DataParallel(encoder)
     else:
         print(f"--- Using single {device} ---")
 
@@ -55,11 +55,12 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
 
     optimizer = torch.optim.AdamW([
         {'params': decoder.parameters(), 'lr': lr},
-        {'params': encoder.parameters(), 'lr': lr * 0.1}
+        {'params': encoder.parameters(), 'lr': lr * 0.1}  # only finetune bert encoder
     ])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=5e-6)
+
     l_loss = nn.L1Loss(reduction='mean')
-    perceptual_loss = PerceptualLoss().to(device) if percpetual_loss else None
+    perceptual_loss = PerceptualLoss().to(device)
     clip_loss = CLIPLoss().to(device)
     color_loss = ColorMomentLoss().to(device)
     decorrelation_loss = LatentDecorrelationLoss().to(device)
@@ -67,18 +68,21 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
 
     decoder.train()
     encoder.train()
-    scaler = GradScaler(device)
+    scaler = GradScaler(device)  # needed for mixed precision
     best_loss = float('inf')
-    tolerance = 80
+    tolerance = 80  # very high, change to have proper early stopping
 
     for epoch in range(num_epochs):
+
         epoch_train_loss = 0.0
         epoch_mae = 0.0
         epoch_cl = 0
         epoch_col = 0
         epoch_dec = 0
         epoch_per = 0
+
         if epoch == 150:
+            # no more restarts after epoch 150
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=450, eta_min=5e-6)
 
         for i, (target_image, text, name) in enumerate(tqdm(train_dataloader)):
@@ -100,21 +104,20 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                 per_loss = 0.1 * perceptual_loss(output, target_image)
                 loss = mae_loss + cl_loss + dec_loss + col_loss + per_loss
 
-            # + (1e-3 * torch.mean(latent ** 2))) double penalty with adamW
+                # + (1e-3 * torch.mean(latent ** 2))) double penalty with adamW
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            epoch_train_loss += loss.item()
 
+            epoch_train_loss += loss.item()
             epoch_mae += mae_loss.item()
             epoch_cl += cl_loss.item()
             epoch_col += col_loss.item()
             epoch_dec += dec_loss.item()
             epoch_per += per_loss.item()
 
-
-            if i % save_interval == 0:
+            if i % save_interval == 0 and epoch % 10 == 0:
                 names = '_'.join(name)  # save image
                 save_sample_images(torch.cat([output[:4], target_image[:4]], dim=0),
                                    filename=f'{epoch:03}_{i}_{names}.jpg')
@@ -123,7 +126,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
         scheduler.step()
         val_loss = validate(decoder, encoder, tokenizer, val_dataloader, device)
         val_losses.append(val_loss)
-        epoch_train_loss = epoch_train_loss / len(train_dataloader)
+        epoch_train_loss /= len(train_dataloader)
         epoch_mae /= len(train_dataloader)
         epoch_cl /= len(train_dataloader)
         epoch_col /= len(train_dataloader)
@@ -153,8 +156,9 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                     print(f'Early stopping at epoch {epoch + 1}/{num_epochs}')
                     break
 
-
-    plot_train_val_losses(train_losses, val_losses)
+    plot_train_val_losses(train_losses, val_losses,
+                          {'L1 Loss': mae_losses, 'Color Loss': cl_losses, 'Decorrelation Loss': dec_losses,
+                           'Perceptual Loss': per_losses})
     return train_losses, val_losses
 
 
@@ -164,8 +168,9 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
 
 if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
     project_root = get_project_root()
-    with open(project_root / 'config.yaml') as f:
+    with open(project_root / 'config.yml') as f:
         config = yaml.safe_load(f)
         training_config = config['training']
         model_config = config['model']
@@ -173,6 +178,7 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained(model_config['bert_model'])
     special_tokens_dict = {'additional_special_tokens': ['[NAME]']}
     tokenizer.add_special_tokens(special_tokens_dict)
+
     bert_encoder = AutoModel.from_pretrained(model_config['bert_model'])
     bert_encoder.resize_token_embeddings(len(tokenizer))
     decoder = Decoder(text_embed_dim=bert_encoder.config.hidden_size, latent_size=model_config['latent_size'],
@@ -183,16 +189,17 @@ if __name__ == '__main__':
                                        project_root / 'data' / 'images' /
                                        f'{model_config["output_size"][1]}',
                                        return_hidden=False, augment_text=True, augment_images=False)
+    # Contrary to the normal train/val/test splits, these are overlapping as pokemons are finite set
     val_dataset = TextAndImageDataset(project_root / 'data/text_description_concat.csv',
                                       project_root / 'data' / 'images' /
                                       f'{model_config["output_size"][1]}',
                                       return_hidden=False, augment_text=False, augment_images=False)
 
-    # Split datasets
-    total_len = len(full_dataset)
-    train_len = int(0.8 * total_len)
-    val_len = int(0.1 * total_len)
-    test_len = len(full_dataset) - train_len - val_len
+    # Not used code for not overlapping code
+    # total_len = len(full_dataset)
+    # train_len = int(0.8 * total_len)
+    # val_len = int(0.1 * total_len)
+    # test_len = len(full_dataset) - train_len - val_len
 
     # train_dataset, val_dataset, test_dataset = random_split(
     #    full_dataset,
@@ -200,12 +207,12 @@ if __name__ == '__main__':
     #    generator=torch.Generator().manual_seed(42)  # for reproducibility
     # )
 
-    val_size = int(total_len * 0.1)
+    val_size = int(len(full_dataset) * 0.1)
 
     # Generate shuffled indices
-    indices = torch.randperm(total_len).tolist()[:val_size]
-
+    indices = torch.randperm(len(full_dataset)).tolist()[:val_size]
     val_dataset = Subset(val_dataset, indices)
+
 
     train_dataloader = DataLoader(full_dataset, batch_size=training_config['batch_size'], shuffle=True,
                                   pin_memory=True, num_workers=1, pin_memory_device=device)
@@ -216,7 +223,6 @@ if __name__ == '__main__':
 
 
     t, v = train_decoder(decoder=decoder, encoder=bert_encoder, tokenizer=tokenizer, train_dataloader=train_dataloader,
-                         percpetual_loss=True,
                          val_dataloader=val_dataloader, num_epochs=training_config['num_epochs'],
                          lr=float(training_config['learning_rate']), save_interval=training_config['save_interval'],
                          device=device)

@@ -72,7 +72,7 @@ class ResBlock(nn.Module):
 
 class ConvTranspose2d(nn.Module):
     """
-    Applies transposed convolution (deconvolution) for upsampling.
+    Applies transposed convolution  for upsampling.
     """
 
     def __init__(self, in_channels, out_channels, kernel_size=4):
@@ -132,29 +132,30 @@ class Decoder(nn.Module):
         num_heads (int): Number of attention heads used in cross-attention layers.
         decoder_depth (int): Number of decoding stages, each with resblock, upsampling, and attention.
         output_size (tuple): Final output image size as (channels, height, width).
-        seq_len (int): Length of the input token sequence from the text encoder.
+        decay_channels (float): How much to lower the channel size layer by layer. default: 0.75
 
     Inputs:
         encoder_output (torch.Tensor): Text encoder output of shape (batch_size, seq_len, text_embed_dim).
 
     Returns:
-        torch.Tensor: Decoded image of shape (batch_size, output_size[0], output_size[1], output_size[2]).
+        torch.Tensor: Decoded image of shape (batch_size, *output_size).
     """
 
     def __init__(self, text_embed_dim, latent_size=(512, 8, 8), num_heads=8, decoder_depth=4, output_size=(3, 215, 215),
-                 seq_len=168, decay_channels=0.75):
+                 decay_channels=0.75):
         super().__init__()
         self.output_size = output_size
         self.latent_size = latent_size
         self.text_embed_dim = text_embed_dim
-        self.seq_len = seq_len
         self.latent = nn.Parameter(torch.randn(1, *latent_size))
         self.depth = decoder_depth
 
         current_channels = latent_size[0]
 
-        self.z_dim = 256
+        # self.z_dim = 256 was used to add some stochasticity.
         # self.z_to_latent = nn.Linear(self.z_dim, latent_size[0] * latent_size[1] * latent_size[2])
+
+        # CrossAttention between latent and text
         self.text_attention = CrossAttention(num_heads=num_heads, embed_query_dim=current_channels,
                                              vdim_kdim=text_embed_dim, H_W=latent_size[-1])
         self.dropout = nn.Dropout(p=0.1)
@@ -162,35 +163,35 @@ class Decoder(nn.Module):
         self.resblocks = nn.ModuleList()
         self.attentions = nn.ModuleList()
         self.upscales = nn.ModuleList()
-        size = latent_size[-1]
+        spatial_size = latent_size[-1]
 
         def closest_divisor(value, target=8):
-            divisors = [d for d in range(1, value + 1) if value % d == 0]
+            divisors = [d for d in range(1, (value // 2) + 1) if value % d == 0]
             closest = min(divisors, key=lambda x: abs(x - target))
             return int(closest)
 
-
+        # Build the model layer by layer
         for d in range(decoder_depth):
             self.resblocks.append(
                 ResBlock(in_channels=current_channels, out_channels=current_channels,
                          num_groups=current_channels // closest_divisor(current_channels, 8)))
+
             self.upscales.append(
-                ConvTranspose2d(in_channels=current_channels, out_channels=int(current_channels * decay_channels), )
-                                 if d != decoder_depth - 1 else PixelShuffleUpsample(current_channels,
-                                                                                     int(current_channels * decay_channels),
-                                                                                     num_groups=int(
-                                                                                         current_channels * decay_channels) // closest_divisor(
-                                                                                         int(current_channels * decay_channels),
-                                                                                         8)))
+                ConvTranspose2d(in_channels=current_channels, out_channels=int(current_channels * decay_channels))
+                if d != decoder_depth - 1 else
+                PixelShuffleUpsample(current_channels, int(current_channels * decay_channels),
+                                     num_groups=int(current_channels * decay_channels) //
+                                                closest_divisor(int(current_channels * decay_channels), 8)))
             current_channels = int(current_channels * decay_channels)
-            size *= 2
+            spatial_size *= 2
             self.attentions.append(
                 CrossAttention(num_heads=closest_divisor(current_channels, 8), embed_query_dim=current_channels,
-                                                  vdim_kdim=text_embed_dim, H_W=size))
-
-        self.last_conv = nn.Sequential(ResBlock(in_channels=current_channels, out_channels=current_channels,
-                                                num_groups=current_channels // closest_divisor(current_channels, 8)),
-                                       nn.Conv2d(current_channels, 3, kernel_size=1))
+                               vdim_kdim=text_embed_dim, H_W=spatial_size))
+        # Channels to -> 3
+        self.last_conv = nn.Sequential(
+            ResBlock(in_channels=current_channels, out_channels=current_channels,
+                     num_groups=current_channels // closest_divisor(current_channels, 8)),
+            nn.Conv2d(current_channels, 3, kernel_size=1))
 
 
     def forward(self, encoder_output):
@@ -199,15 +200,20 @@ class Decoder(nn.Module):
         # z = self.z_to_latent(torch.randn(batch_size, self.z_dim, device=latent.device)).view(*latent.shape)
         latent = latent  #+ z
 
+        # adding stochasticity in training
         if self.training:
             latent = latent + torch.randn_like(latent) * 0.01
-        x = F.gelu(self.text_attention(encoder_output, latent))  # x is hidden
+        x = F.gelu(self.text_attention(encoder_output, latent))  # x are the hiddens
+
+        # core loop of the model
         for res, attn, up in zip(self.resblocks, self.attentions, self.upscales):
             x = res(x)
             x = self.dropout(F.gelu(x))
             x = up(x)
-            x = attn(encoder_output, x)  # pass latent here
+            x = attn(encoder_output, x)
         x = F.tanh(self.last_conv(x))
+
+        # potentially make the output the right shape.
         if x.shape[1:] != self.output_size:
             x = F.interpolate(x, size=self.output_size[1:], mode="bilinear", align_corners=True)
         return x
@@ -217,7 +223,7 @@ class Decoder(nn.Module):
 if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     project_root = get_project_root()
-    with open(project_root / 'config.yaml') as f:
+    with open(project_root / 'config.yml') as f:
         config = yaml.safe_load(f)
         training_config = config['training']
         model_config = config['model']

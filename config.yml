@@ -1,0 +1,18 @@
+paths:
+  data_dir: "C:/My folder/pokedex-main"     # Root directory for data
+
+training:
+  num_epochs: 600                           # Total number of training epochs
+  batch_size: 8
+  learning_rate: 1e-4
+  save_interval: 100                        # Save model output each N steps in an epoch
+  best_model_epoch_threshold: 10            # Minimum epoch to start considering best model
+  images: 1000                              # Number of images to use (for overfitting or debug)
+  print_summary: true                       # Whether to print model summary
+
+model:
+  bert_model: "distilbert/distilbert-base-uncased"  # Pretrained BERT variant for text encoding
+  num_heads: 16                                      # Number of attention heads in transformer blocks
+  decoder_depth: 5                                   # Number of decoder layers
+  latent_size: [ 1024, 4, 4 ]                          # Latent representation size (C, H, W)
+  output_size: [ 3, 128, 128 ]                         # Output image size (C, H, W)

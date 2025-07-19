@@ -11,9 +11,9 @@ class PerceptualLoss(nn.Module):
     def __init__(self, layer_weights=None):
         super().__init__()
 
-        vgg = vgg16(weights='DEFAULT').features.eval()  # Use pretrained VGG1...
+        vgg = vgg16(weights='DEFAULT').features.eval()
         for param in vgg.parameters():
-            param.requires_grad = False  # Freeze weights
+            param.requires_grad = False
 
         # Select layers to extract features from
         self.extractor = create_feature_extractor(vgg, return_nodes={
@@ -31,6 +31,10 @@ class PerceptualLoss(nn.Module):
         }
 
     def forward(self, pred, target):
+        """
+        image: (B, 3, H, W), range [-1, 1]
+        text: list of strings (length B)
+        """
         # Normalize input to match ImageNet stats
         mean = torch.tensor([0.485, 0.456, 0.406], device=pred.device).view(1, 3, 1, 1)
         std = torch.tensor([0.229, 0.224, 0.225], device=pred.device).view(1, 3, 1, 1)
@@ -51,11 +55,6 @@ class PerceptualLoss(nn.Module):
 
 
 class CLIPLoss(torch.nn.Module):
-    """
-    image: (B, 3, H, W), range [-1, 1]
-    text: list of strings (length B)
-    """
-
     def __init__(self, device='cuda'):
         super().__init__()
         self.device = device
@@ -67,14 +66,12 @@ class CLIPLoss(torch.nn.Module):
         image: (B, 3, H, W), range [-1, 1]
         text: list of strings (length B)
         """
-
+        # Remove special tokens
         for i in range(len(text)):
             text[i] = ' '.join([word for word in text[i].split(' ') if word not in ['[MASK]', '[NAME]']])
 
-        # Scale image from [-1, 1] to [0, 1] as processor expects
         image = (image + 1) / 2
 
-        # Use processor to handle preprocessing and tokenization with truncation & padding
         inputs = self.processor(text=text, images=image, return_tensors="pt", padding=True, truncation=True,
                                 do_rescale=False).to(self.device)
 
