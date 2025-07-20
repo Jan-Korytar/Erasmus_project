@@ -50,7 +50,7 @@ class TextAndImageDataset(Dataset):
 
         org_name, text = text.split(';', 1)
         sentences = text.split('.')
-        keep = random.uniform(0.2, 0.5)
+        keep = random.uniform(0.3, 0.5)
         sentences = random.sample(sentences, min(1, int(keep * (len(sentences)))))
 
         def drop_words(sentence):
@@ -59,7 +59,7 @@ class TextAndImageDataset(Dataset):
             return ' '.join(kept)
 
         sentences = [drop_words(s) for s in sentences]
-        if random.random() < 0.75:
+        if random.random() < 0.66:
             name = '[NAME]'
         else:
             name = org_name
