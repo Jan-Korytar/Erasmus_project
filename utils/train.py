@@ -133,16 +133,16 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
         epoch_dec /= len(train_dataloader)
         epoch_per /= len(train_dataloader)
         train_losses.append(epoch_train_loss)
-        mae_losses.append(mae_loss)
-        cl_losses.append(cl_loss)
-        col_losses.append(col_loss)
-        dec_losses.append(dec_loss)
-        per_losses.append(per_loss)
+        mae_losses.append(epoch_mae)
+        cl_losses.append(epoch_cl)
+        col_losses.append(epoch_col)
+        dec_losses.append(epoch_dec)
+        per_losses.append(epoch_per)
 
         print(
             f"[Epoch {epoch + 1}/{num_epochs}] Loss: {epoch_train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {scheduler.get_last_lr()[0]:.6f}, Tolerance: {tolerance}")
         print(
-            f'MAE: {mae_loss:.4f}, CLIP: {cl_loss:.4f}, Color: {col_loss:.4f}, Decorrelation: {dec_loss:.4f}, Perceptual: {per_loss:.4f}')
+            f'MAE: {epoch_mae:.4f}, CLIP: {epoch_cl:.4f}, Color: {epoch_col:.4f}, Decorrelation: {epoch_dec:.4f}, Perceptual: {epoch_per:.4f}')
         if epoch >= 10:
             if val_loss < best_loss:
                 tolerance = 35
@@ -157,7 +157,7 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                     break
 
     plot_train_val_losses(train_losses, val_losses,
-                          {'L1 Loss': mae_losses, 'Color Loss': cl_losses, 'Decorrelation Loss': dec_losses,
+                          {'L1 Loss': mae_losses, 'Color Loss': cl_losses, 'CLIP loss': cl_losses,
                            'Perceptual Loss': per_losses})
     return train_losses, val_losses
 
