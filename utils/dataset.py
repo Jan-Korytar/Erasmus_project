@@ -50,7 +50,7 @@ class TextAndImageDataset(Dataset):
 
         org_name, text = text.split(';', 1)
         sentences = text.split('.')
-        keep = random.uniform(0.2, 0.6)
+        keep = random.uniform(0.2, 0.5)
         sentences = random.sample(sentences, max(1, int(keep * (len(sentences)))))
 
         def drop_words(sentence):
