@@ -22,7 +22,7 @@ class TextAndImageDataset(Dataset):
 
     def __init__(self, text_path, image_path, augment_images=False, augment_text=True):
         self.image_paths = sorted(Path(image_path).glob('*.jpg'), key=lambda p: p.name)
-        self.augment_images = augment_images
+        self.augment_images = False
         self.augment_text = augment_text
         self.image_transform = T.Compose([
             T.RandomResizedCrop(128, scale=(0.9, 1.0)),
@@ -50,8 +50,8 @@ class TextAndImageDataset(Dataset):
 
         org_name, text = text.split(';', 1)
         sentences = text.split('.')
-        keep = random.uniform(0.3, 0.5)
-        sentences = random.sample(sentences, min(1, int(keep * (len(sentences)))))
+        keep = random.uniform(0.2, 0.6)
+        sentences = random.sample(sentences, max(1, int(keep * (len(sentences)))))
 
         def drop_words(sentence):
             tokens = sentence.split()
@@ -59,7 +59,7 @@ class TextAndImageDataset(Dataset):
             return ' '.join(kept)
 
         sentences = [drop_words(s) for s in sentences]
-        if random.random() < 0.66:
+        if random.random() < 0.65:
             name = '[NAME]'
         else:
             name = org_name
