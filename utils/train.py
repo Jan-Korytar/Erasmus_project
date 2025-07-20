@@ -121,7 +121,9 @@ def train_decoder(decoder, encoder, tokenizer, train_dataloader, val_dataloader,
                 names = '_'.join(name)  # save image
                 save_sample_images(torch.cat([output[:4], target_image[:4]], dim=0),
                                    filename=f'{epoch:03}_{i}_{names}.jpg')
-                plot_train_val_losses(train_losses, val_losses)
+                plot_train_val_losses(train_losses, val_losses,
+                                      {'L1 Loss': mae_losses, 'Color Loss': cl_losses, 'CLIP loss': cl_losses,
+                                       'Perceptual Loss': per_losses})
 
         scheduler.step()
         val_loss = validate(decoder, encoder, tokenizer, val_dataloader, device)
